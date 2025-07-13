@@ -1,5 +1,5 @@
 [package]
-name = "nix_rust_template-web"
+name = "ggl_wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,5 +9,5 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-nix_rust_template = { path = "../shared" }
+ggl = { path = "../ggl" }
 wasm-bindgen = "0.2"

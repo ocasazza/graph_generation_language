@@ -1,0 +1,48 @@
+// Whitespace and comments
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+// Identifiers and literals
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+boolean = @{ "true" | "false" }
+
+// Values
+value = { string | number | boolean | ident }
+
+// Attributes
+attribute = { ident ~ "=" ~ value }
+attribute_list = { (attribute ~ ("," ~ attribute)*)? }
+attributes = { "[" ~ attribute_list ~ "]" }
+
+// Node declarations
+node_type = { ":" ~ ident }
+node_decl = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
+
+// Edge declarations
+edge_op = { "->" | "--" }
+edge_decl = { "edge" ~ ident? ~ ":" ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
+
+// Generator statements
+param = { ident ~ ":" ~ value }
+param_list = { (param ~ ";")* }
+generate_stmt = { "generate" ~ ident ~ "{" ~ param_list ~ "}" }
+
+// Rule patterns
+node_pattern = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
+edge_pattern = { ("edge" ~ ident? ~ ":")? ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
+pattern = { "{" ~ (node_pattern | edge_pattern)* ~ "}" }
+
+// Rule definition
+rule_def = { "rule" ~ ident ~ "{" ~ "lhs" ~ pattern ~ "rhs" ~ pattern ~ "}" }
+
+// Rule application
+apply_rule = { "apply" ~ ident ~ number ~ "times" ~ ";" }
+
+// Graph statements
+statement = { node_decl | edge_decl | generate_stmt | rule_def | apply_rule }
+graph = { "graph" ~ ident? ~ "{" ~ statement* ~ "}" }
+
+// Entry point
+program = { SOI ~ graph ~ EOI }

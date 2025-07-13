@@ -1,4 +1,3 @@
-use nix_rust_template::Post;
 use web_sys::window;
 
 /// The main function of the client application.
@@ -7,17 +6,13 @@ use web_sys::window;
 /// and then appends a greeting to the document body.
 fn main() {
     console_error_panic_hook::set_once();
-    let post = Post {
-        title: "Nix Rust Template".to_string(),
-        author_name: "Olive Casazza".to_string(),
-        text: "🚀 Blazingly Fast".to_string(),
-    };
+
     let document = window()
         .and_then(|win| win.document())
         .expect("Could not access the document");
     let body = document.body().expect("Could not access document.body");
     let greeting = format!("Hello {}!", post.author_name);
-    let text_node = document.create_text_node(&greeting);
+    let text_node = document.create_text_node("hello world!".as_str());
     body.append_child(text_node.as_ref())
         .expect("Failed to append text");
 }
@@ -27,7 +22,7 @@ fn main() {
 
 // use gloo::net;
 // use yew::prelude::*;
-// use nix_rust_template::Post;
+// use ggl::Post;
 
 // async fn request_posts() -> Vec<Post> {
 //     net::http::Request::get("http://localhost:8000/posts")

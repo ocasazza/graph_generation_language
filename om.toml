@@ -1,27 +1,29 @@
-# Omnix configuration for nix_rust_template
+# Omnix configuration for ggl
 # This ensures consistent CI behavior across platforms
 
-[ci]
-# Build all packages and checks
-build = [
-  "packages.default",
-  "checks.myShared",
-  "checks.myWeb",
-  "checks.myServer",
-  "checks.myClient",
-  "checks.myDocs"
-]
+# # [ci]
+# # # Build all packages and checks
+# build = [
+#   "packages.default",
+#   "checks.ggl",
+#   "checks.ggl_cli",
+#   "checks.ggl_wasm",
+#   "checks.ggl_client",
+#   "checks.docs"
+#   "checks.clippy"
+#   "checks.fmt"
+# ]
 
-# Additional settings for cross-platform compatibility
-[ci.systems]
-# Explicitly specify which systems to support
-# This helps avoid platform-specific issues
-include = [
-  "x86_64-linux",
-  "aarch64-linux",
-  "x86_64-darwin",
-  "aarch64-darwin"
-]
+# # Additional settings for cross-platform compatibility
+# [ci.systems]
+# # Explicitly specify which systems to support
+# # This helps avoid platform-specific issues
+# include = [
+#   "x86_64-linux",
+#   "aarch64-linux",
+#   "x86_64-darwin",
+#   "aarch64-darwin"
+# ]
 
 [ci.options]
 # Increase timeout for WASM builds which can be slow

@@ -1,0 +1,19 @@
+[package]
+name = "ggl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+keywords.workspace = true
+description = "Core library for the Graph Generation Language (GGL)"
+
+[dependencies]
+serde_json = "1.0"
+pest = "2.8"
+pest_derive = "2.8"
+rand = { version = "0.8", features = ["small_rng"] }
+getrandom = { version = "0.2" }

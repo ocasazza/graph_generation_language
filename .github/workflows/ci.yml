@@ -70,7 +70,6 @@ jobs:
         uses: release-plz/action@v0.5
         with:
           command: release-pr
-          # manifest_path: ./shared/Cargo.toml
           config: .release-plz.toml
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -97,7 +96,7 @@ jobs:
         uses: release-plz/action@v0.5
         with:
           command: release
-          # manifest_path: ./shared/Cargo.toml
+          # manifest_path: ./ggl/Cargo.toml
           config: .release-plz.toml
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -128,7 +127,7 @@ jobs:
     - name: Prepare npm package from artifacts
       run: |
         # Extract web package from artifacts
-        if [ -d "artifacts/nix_rust_template-web" ]; then
+        if [ -d "artifacts/ggl_wasm" ]; then
           mkdir -p pkg
           cp -r artifacts/web/*/pkg pkg/
         fi
@@ -164,8 +163,8 @@ jobs:
         run: |
           # Extract documentation from crane-template-doc artifact
           mkdir -p target/doc/rustdoc
-          if [ -d "artifacts/nix_rust_template-doc" ]; then
-            cp -r artifacts/nix_rust_template-doc/*nix_rust_template-doc*/* target/doc/rustdoc
+          if [ -d "artifacts/ggl-doc" ]; then
+            cp -r artifacts/ggl-doc/*ggl-doc*/* target/doc/rustdoc
           fi
 
       - name: Prepare GitHub Pages content
@@ -174,8 +173,8 @@ jobs:
           mkdir -p target/doc/demo
 
           # Copy WASM demo files from client-trunk artifact if available
-          if [ -d "artifacts/nix_rust_template-client" ]; then
-            cp -r artifacts/nix_rust_template-client/* target/doc/demo/ 2>/dev/null || true
+          if [ -d "artifacts/ggl_client" ]; then
+            cp -r artifacts/ggl_client/* target/doc/demo/ 2>/dev/null || true
           fi
 
           # Copy the GitHub Pages index template as the main index

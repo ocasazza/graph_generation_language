@@ -1,24 +1,23 @@
-# Release configuration for nix_rust_template
-# Only process the shared library package
+# Release configuration for ggl
 
 [workspace]
 allow_dirty = true # allow updating repositories with uncommitted changes
 
 [[package]]
-name = "nix_rust_template"
+name = "ggl"
 changelog_update = true # enable changelog update
+publish = true
+
+[[package]]
+name = "ggl_wasm"
+publish = true
+
+[[package]]
+name = "ggl_cli"
 publish = false
 
 [[package]]
-name = "nix_rust_template-client"
-publish = false
-
-[[package]]
-name = "nix_rust_template-server"
-publish = false
-
-[[package]]
-name = "nix_rust_template-web"
+name = "ggl_client"
 publish = false
 
 [changelog]

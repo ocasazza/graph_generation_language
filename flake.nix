@@ -79,7 +79,7 @@
         # i.e. non-wasm / non-browser stuff first
         # ---------------------------------------
         nativeArgs = commonArgs // {
-          pname = "nix_rust_template";
+          pname = "ggl";
         };
 
         # Build *just* the cargo dependencies, so we can reuse
@@ -87,10 +87,10 @@
         cargoArtifacts = craneLib.buildDepsOnly nativeArgs;
 
         # ---------------------------------
-        # build the library / shared rust crate
+        # build the library / ggl rust crate
         # that can be published to crates.io
         # ---------------------------------
-        myShared = craneLib.buildPackage (
+        graphGenerationLanguage = craneLib.buildPackage (
           nativeArgs
           // {
             inherit cargoArtifacts;
@@ -98,17 +98,13 @@
         );
 
         # -----------------------------
-        # build a native application
-        # that uses the shared library
+        # build a native cli application
+        # that uses the ggl library
         # -----------------------------
-        myServer = craneLib.buildPackage (
+        graphGenerationLanguageCli = craneLib.buildPackage (
           nativeArgs
           // {
             inherit cargoArtifacts;
-            # The server needs to know where the client's dist dir is to
-            # serve it, so we pass it as an environment variable at build time
-            # Use a placeholder path during build, the actual client will be available separately
-            CLIENT_DIST = "./client/dist";
           }
         );
 
@@ -117,8 +113,8 @@
         # can be published to npm
         # ----------------------------
         wasmArgs = commonArgs // {
-          pname = "web";
-          cargoExtraArgs = "--package=nix_rust_template-web";
+          pname = "ggl_web";
+          cargoExtraArgs = "--package=ggl_wasm";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
         wasmCargoArtifacts = craneLib.buildDepsOnly (
@@ -127,7 +123,7 @@
             doCheck = false;
           }
         );
-        myWeb = craneLib.mkCargoDerivation (wasmArgs // {
+        graphGenerationLanguageWasm = craneLib.mkCargoDerivation (wasmArgs // {
           cargoArtifacts = wasmCargoArtifacts;
           doCheck = false;
           buildPhaseCargoCommand = ''
@@ -157,33 +153,33 @@
 
         # -----------------------------
         # build a in-browser client
-        # that uses the shared library
+        # that uses the ggl library
         # -----------------------------
-        webArgs = commonArgs // {
+        clientArgs = commonArgs // {
           pname = "client";
-          cargoExtraArgs = "--package=nix_rust_template-client";
+          cargoExtraArgs = "--package=ggl_client";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
-        webCargoArtifacts = craneLib.buildDepsOnly (
-          webArgs
+        clientCargoArtifacts = craneLib.buildDepsOnly (
+          clientArgs
           // {
             doCheck = false;
           }
         );
-        # # Build the frontend of the application.
-        # # This derivation is a directory you can put on a webserver.
-        myClient = craneLib.buildTrunkPackage (
-          webArgs
+        # Build the frontend of the application.
+        # This derivation is a directory you can put on a webserver.
+        graphGenerationLanguageClient = craneLib.buildTrunkPackage (
+          clientArgs
           // {
-            cargoArtifacts = webCargoArtifacts;
+            cargoArtifacts = clientCargoArtifacts;
             # Trunk expects the current directory to be the crate to compile
             preBuild = ''
-              cd ./client
+              cd ./crates/graphGenerationLanguageClient
             '';
             # After building, move the `dist` artifacts and restore the working directory
             postBuild = ''
-              mv ./dist ..
-              cd ..
+              mv ./dist ../../
+              cd ../../
             '';
             # The version of wasm-bindgen-cli here must match the one from Cargo.lock.
             # When updating to a new version replace the hash values with lib.fakeHash,
@@ -212,7 +208,7 @@
       {
         checks = {
           # Build the crate as part of `nix flake check` for convenience
-          inherit myShared myWeb myServer myClient; # myCli;
+          inherit graphGenerationLanguage graphGenerationLanguageWasm graphGenerationLanguageCli graphGenerationLanguageClient;
 
           docs = craneLib.cargoDoc (
             commonArgs
@@ -241,13 +237,14 @@
           fmt = craneLib.cargoFmt commonArgs;
         };
 
-        packages.default = myShared;
-        packages.nix_rust_template = myShared;
-        packages.nix_rust_template-web = myWeb;
+        packages.default = graphGenerationLanguage;
+        packages.graphGenerationLanguageCli = graphGenerationLanguageCli;
+        packages.graphGenerationLanguageClient = graphGenerationLanguageClient;
+        packages.graphGenerationLanguageWasm = graphGenerationLanguageWasm;
 
         apps.server = flake-utils.lib.mkApp {
-          name = "nix_rust_template-server";
-          drv = myServer;
+          name = "ggl-server";
+          drv = graphGenerationLanguageCli;
         };
 
         # app to copy all outpaths from omnix result to local ./artifacts folder
