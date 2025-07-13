@@ -5,7 +5,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
-use graph_generation_language::GGLEngine;
+use ggl::GGLEngine;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -70,7 +70,7 @@ fn test_error_handling() {
 fn test_panic_hook_setup() {
     // This test ensures that the panic hook is properly set up
     // If it's not, this test might not provide useful error messages
-    graph_generation_language::set_panic_hook();
+    ggl::set_panic_hook();
 
     // Test that we can still create and use an engine after setting up the panic hook
     let mut engine = GGLEngine::new();

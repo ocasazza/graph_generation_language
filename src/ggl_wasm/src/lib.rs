@@ -3,7 +3,7 @@
 //! This crate provides WebAssembly bindings for the GGL library, allowing
 //! GGL to be used in web browsers and other JavaScript environments.
 
-use ggl::GGLEngine as CoreGGLEngine;
+use ggl::GGLEngine;
 use wasm_bindgen::prelude::*;
 
 // When the `console_error_panic_hook` feature is enabled, we can call the
@@ -13,7 +13,6 @@ use wasm_bindgen::prelude::*;
 // For more details see
 // https://github.com/rustwasm/console_error_panic_hook#readme
 pub fn set_panic_hook() {
-    #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
 
@@ -56,24 +55,30 @@ pub fn run() {
 /// main();
 /// ```
 #[wasm_bindgen]
-pub struct GGLEngine {
-    inner: CoreGGLEngine,
+pub struct WASMGGLEngine {
+    inner: GGLEngine,
+}
+
+ impl Default for WASMGGLEngine {
+    fn default() -> Self {
+       Self::new()
+    }
 }
 
 #[wasm_bindgen]
-impl GGLEngine {
+impl WASMGGLEngine {
     /// Creates a new GGL engine.
     ///
     /// # Examples
     ///
     /// ```javascript
-    /// const engine = new GGLEngine();
+    /// const engine = new WASMGGLEngine();
     /// ```
     #[wasm_bindgen(constructor)]
-    pub fn new() -> GGLEngine {
+    pub fn new() -> WASMGGLEngine {
         set_panic_hook();
-        GGLEngine {
-            inner: CoreGGLEngine::new(),
+        WASMGGLEngine {
+            inner: GGLEngine::new(),
         }
     }
 
@@ -127,7 +132,7 @@ impl GGLEngine {
     #[wasm_bindgen]
     pub fn get_graph_json(&self) -> Result<String, JsValue> {
         serde_json::to_string(self.inner.graph())
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 
     /// Returns the current graph as a pretty-printed JSON string.
@@ -143,7 +148,7 @@ impl GGLEngine {
     #[wasm_bindgen]
     pub fn get_graph_json_pretty(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(self.inner.graph())
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 }
 
@@ -183,7 +188,7 @@ impl GGLEngine {
 /// ```
 #[wasm_bindgen]
 pub fn parse_ggl(ggl_code: &str) -> Result<String, JsValue> {
-    let mut engine = CoreGGLEngine::new();
+    let mut engine = GGLEngine::new();
     engine
         .generate_from_ggl(ggl_code)
         .map_err(|e| JsValue::from_str(&e))

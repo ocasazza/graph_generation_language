@@ -1,4 +1,4 @@
-use graph_generation_language::GGLEngine;
+use ggl::GGLEngine;
 use serde_json::Value;
 
 #[cfg(test)]

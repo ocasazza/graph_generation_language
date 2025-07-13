@@ -1,5 +1,5 @@
-use graph_generation_language::generators::*;
-use graph_generation_language::types::MetadataValue;
+use ggl::generators::*;
+use ggl::types::MetadataValue;
 use std::collections::HashMap;
 
 #[cfg(test)]

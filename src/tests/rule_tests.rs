@@ -1,6 +1,6 @@
-use graph_generation_language::parser::{EdgeDeclaration, NodeDeclaration, Pattern};
-use graph_generation_language::rules::Rule;
-use graph_generation_language::types::{Edge, Graph, MetadataValue, Node};
+use ggl::parser::{EdgeDeclaration, NodeDeclaration, Pattern};
+use ggl::rules::Rule;
+use ggl::types::{Edge, Graph, MetadataValue, Node};
 use std::collections::HashMap;
 
 #[cfg(test)]

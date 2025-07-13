@@ -56,8 +56,8 @@
 //!
 //! Building from source:
 //! ```bash
-//! git clone https://github.com/ocasazza/graph_generation_language.git
-//! cd graph_generation_language
+//! git clone https://github.com/ocasazza/graph-generation-language.git
+//! cd graph-generation-language
 //! cargo build --release
 //! ```
 //!
@@ -98,7 +98,7 @@ use crate::types::{Edge, Graph, Node};
 /// # Examples
 ///
 /// ```rust
-/// use ggl_lib::GGLEngine;
+/// use ggl::GGLEngine;
 ///
 /// let mut engine = GGLEngine::new();
 /// let ggl_code = r#"
@@ -112,10 +112,9 @@ use crate::types::{Edge, Graph, Node};
 /// let result = engine.generate_from_ggl(ggl_code).unwrap();
 /// println!("Generated graph: {}", result);
 /// ```
-///
 pub struct GGLEngine {
     graph: Graph,
-    rules: HashMap<String, rules::TransformationRule>,
+    rules: HashMap<String, rules::Rule>,
 }
 
 impl Default for GGLEngine {
@@ -130,7 +129,7 @@ impl GGLEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl_lib::GGLEngine;
+    /// use ggl::GGLEngine;
     ///
     /// let engine = GGLEngine::new();
     /// ```
@@ -156,7 +155,7 @@ impl GGLEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl_lib::GGLEngine;
+    /// use ggl::GGLEngine;
     ///
     /// let mut engine = GGLEngine::new();
     /// let ggl_code = r#"
@@ -198,8 +197,8 @@ impl GGLEngine {
                 }
                 GGLStatement::GenerateStmt(gen) => {
                     if let Some(generator) = get_generator(&gen.name) {
-                        let generated =
-                            generator(&gen.params).map_err(|e| format!("Generator error: {e}"))?;
+                        let generated = generator(&gen.params)
+                            .map_err(|e| format!("Generator error: {e}"))?;
 
                         // Merge generated graph into current graph
                         for (_, node) in generated.nodes {
@@ -213,7 +212,7 @@ impl GGLEngine {
                     }
                 }
                 GGLStatement::RuleDefStmt(rule_def) => {
-                    let rule = rules::TransformationRule {
+                    let rule = rules::Rule {
                         name: rule_def.name.clone(),
                         lhs: rule_def.lhs,
                         rhs: rule_def.rhs,
@@ -231,6 +230,7 @@ impl GGLEngine {
             }
         }
 
+        // Serialize final graph to JSON
         serde_json::to_string(&self.graph).map_err(|e| format!("Serialization error: {e}"))
     }
 
@@ -245,7 +245,7 @@ impl GGLEngine {
     }
 
     /// Returns a reference to the current rules.
-    pub fn rules(&self) -> &HashMap<String, rules::TransformationRule> {
+    pub fn rules(&self) -> &HashMap<String, rules::Rule> {
         &self.rules
     }
 }

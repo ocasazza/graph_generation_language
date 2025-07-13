@@ -3,13 +3,13 @@ use crate::types::{Edge, Graph, Node};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
-pub struct TransformationRule {
+pub struct Rule {
     pub name: String,
     pub lhs: Pattern,
     pub rhs: Pattern,
 }
 
-impl TransformationRule {
+impl Rule {
     pub fn apply(&self, graph: &mut Graph, iterations: usize) -> Result<(), String> {
         for _ in 0..iterations {
             let matches = self.find_matches(graph)?;
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn test_simple_rule() {
         // Create a rule that replaces a single node with two connected nodes
-        let rule = TransformationRule {
+        let rule = Rule {
             name: "split".to_string(),
             lhs: Pattern {
                 nodes: vec![NodeDeclaration {
@@ -400,7 +400,7 @@ mod tests {
         let mut type_attrs = HashMap::new();
         type_attrs.insert("type".to_string(), MetadataValue::String("A".to_string()));
 
-        let rule = TransformationRule {
+        let rule = Rule {
             name: "type_match".to_string(),
             lhs: Pattern {
                 nodes: vec![NodeDeclaration {

@@ -43,9 +43,8 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Flexible value type for node and edge metadata attributes.
 ///
@@ -75,7 +74,8 @@ use serde::{Deserialize, Serialize};
 ///   "active": true
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
 pub enum MetadataValue {
     /// String value for text data
     String(String),

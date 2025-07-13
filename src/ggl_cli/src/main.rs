@@ -74,8 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = if args.pretty {
         let parsed: serde_json::Value = serde_json::from_str(&result)
             .map_err(|e| format!("Failed to parse generated JSON: {e}"))?;
-        serde_json::to_string_pretty(&parsed)
-            .map_err(|e| format!("Failed to format JSON: {e}"))?
+        serde_json::to_string_pretty(&parsed).map_err(|e| format!("Failed to format JSON: {e}"))?
     } else {
         result
     };

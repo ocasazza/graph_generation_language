@@ -1,5 +1,5 @@
-use graph_generation_language::parser::{parse_ggl, GGLStatement};
-use graph_generation_language::types::MetadataValue;
+use ggl::parser::{parse_ggl, GGLStatement};
+use ggl::types::MetadataValue;
 
 #[cfg(test)]
 mod lexical_tests {

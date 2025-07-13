@@ -127,9 +127,9 @@
           doCheck = false;
           buildPhaseCargoCommand = ''
             HOME=$(mktemp -d fake-homeXXXX)
-            cd ./src/ggl_wasm
+            cd src/ggl_wasm
             wasm-pack build --target web --out-dir pkg
-            cd ..
+            cd ../..
           '';
           installPhaseCommand = ''
             mkdir -p $out
@@ -173,7 +173,7 @@
             cargoArtifacts = clientCargoArtifacts;
             # Trunk expects the current directory to be the crate to compile
             preBuild = ''
-              cd ./src/graphGenerationLanguageClient
+              cd ./src/ggl_client
             '';
             # After building, move the `dist` artifacts and restore the working directory
             postBuild = ''
@@ -226,16 +226,10 @@
             commonArgs
             // {
               inherit cargoArtifacts;
+              # cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               # Here we don't care about serving the frontend
               CLIENT_DIST = "./src/ggl_client";
-            }
-          );
-
-          # Check formatting
-          fmt = craneLib.cargoFmt (
-            commonArgs // {
-              inherit src;
             }
           );
         };
