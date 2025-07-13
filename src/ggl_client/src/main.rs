@@ -11,8 +11,7 @@ fn main() {
         .and_then(|win| win.document())
         .expect("Could not access the document");
     let body = document.body().expect("Could not access document.body");
-    let greeting = format!("Hello {}!", post.author_name);
-    let text_node = document.create_text_node("hello world!".as_str());
+    let text_node = document.create_text_node("hello world!");
     body.append_child(text_node.as_ref())
         .expect("Failed to append text");
 }

@@ -112,9 +112,10 @@ use crate::types::{Edge, Graph, Node};
 /// let result = engine.generate_from_ggl(ggl_code).unwrap();
 /// println!("Generated graph: {}", result);
 /// ```
+///
 pub struct GGLEngine {
     graph: Graph,
-    rules: HashMap<String, rules::Rule>,
+    rules: HashMap<String, rules::TransformationRule>,
 }
 
 impl Default for GGLEngine {
@@ -173,7 +174,7 @@ impl GGLEngine {
     /// ```
     pub fn generate_from_ggl(&mut self, ggl_code: &str) -> Result<String, String> {
         // Parse GGL code
-        let statements = parse_ggl(ggl_code).map_err(|e| format!("Parse error: {}", e))?;
+        let statements = parse_ggl(ggl_code).map_err(|e| format!("Parse error: {e}"))?;
 
         // Reset graph state
         self.graph = Graph::new();
@@ -197,8 +198,8 @@ impl GGLEngine {
                 }
                 GGLStatement::GenerateStmt(gen) => {
                     if let Some(generator) = get_generator(&gen.name) {
-                        let generated = generator(&gen.params)
-                            .map_err(|e| format!("Generator error: {}", e))?;
+                        let generated =
+                            generator(&gen.params).map_err(|e| format!("Generator error: {e}"))?;
 
                         // Merge generated graph into current graph
                         for (_, node) in generated.nodes {
@@ -212,7 +213,7 @@ impl GGLEngine {
                     }
                 }
                 GGLStatement::RuleDefStmt(rule_def) => {
-                    let rule = rules::Rule {
+                    let rule = rules::TransformationRule {
                         name: rule_def.name.clone(),
                         lhs: rule_def.lhs,
                         rhs: rule_def.rhs,
@@ -222,7 +223,7 @@ impl GGLEngine {
                 GGLStatement::ApplyRuleStmt(apply) => {
                     if let Some(rule) = self.rules.get(&apply.rule_name) {
                         rule.apply(&mut self.graph, apply.iterations)
-                            .map_err(|e| format!("Rule application error: {}", e))?;
+                            .map_err(|e| format!("Rule application error: {e}"))?;
                     } else {
                         return Err(format!("Unknown rule: {}", apply.rule_name));
                     }
@@ -230,8 +231,7 @@ impl GGLEngine {
             }
         }
 
-        // Serialize final graph to JSON
-        serde_json::to_string(&self.graph).map_err(|e| format!("Serialization error: {}", e))
+        serde_json::to_string(&self.graph).map_err(|e| format!("Serialization error: {e}"))
     }
 
     /// Returns a reference to the current graph.
@@ -245,7 +245,7 @@ impl GGLEngine {
     }
 
     /// Returns a reference to the current rules.
-    pub fn rules(&self) -> &HashMap<String, rules::Rule> {
+    pub fn rules(&self) -> &HashMap<String, rules::TransformationRule> {
         &self.rules
     }
 }

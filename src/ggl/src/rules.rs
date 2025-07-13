@@ -3,13 +3,13 @@ use crate::types::{Edge, Graph, Node};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
-pub struct Rule {
+pub struct TransformationRule {
     pub name: String,
     pub lhs: Pattern,
     pub rhs: Pattern,
 }
 
-impl Rule {
+impl TransformationRule {
     pub fn apply(&self, graph: &mut Graph, iterations: usize) -> Result<(), String> {
         for _ in 0..iterations {
             let matches = self.find_matches(graph)?;
@@ -211,7 +211,7 @@ impl Rule {
     ) -> Result<bool, String> {
         let graph_node = graph
             .get_node(graph_node_id)
-            .ok_or_else(|| format!("Node {} not found in graph", graph_node_id))?;
+            .ok_or_else(|| format!("Node {graph_node_id} not found in graph"))?;
 
         // Check node type if specified
         if let Some(ref node_type) = pattern_node.node_type {
@@ -308,7 +308,7 @@ impl Rule {
             } else {
                 // This is a new edge, generate a unique ID
                 let base_id = if edge.id.is_empty() {
-                    format!("{}_{}", source, target)
+                    format!("{source}_{target}")
                 } else {
                     edge.id.clone()
                 };
@@ -317,7 +317,7 @@ impl Rule {
                 let mut unique_id = base_id.clone();
                 while graph.edges.contains_key(&unique_id) {
                     counter += 1;
-                    unique_id = format!("{}_{}", base_id, counter);
+                    unique_id = format!("{base_id}_{counter}");
                 }
                 unique_id
             };
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn test_simple_rule() {
         // Create a rule that replaces a single node with two connected nodes
-        let rule = Rule {
+        let rule = TransformationRule {
             name: "split".to_string(),
             lhs: Pattern {
                 nodes: vec![NodeDeclaration {
@@ -400,7 +400,7 @@ mod tests {
         let mut type_attrs = HashMap::new();
         type_attrs.insert("type".to_string(), MetadataValue::String("A".to_string()));
 
-        let rule = Rule {
+        let rule = TransformationRule {
             name: "type_match".to_string(),
             lhs: Pattern {
                 nodes: vec![NodeDeclaration {

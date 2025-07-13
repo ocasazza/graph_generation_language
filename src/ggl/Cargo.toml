@@ -10,6 +10,7 @@ documentation.workspace = true
 readme.workspace = true
 keywords.workspace = true
 description = "Core library for the Graph Generation Language (GGL)"
+include = ["src/**/*", "ggl.pest", "build.rs"]
 
 [dependencies]
 serde_json = "1.0"
@@ -17,3 +18,5 @@ pest = "2.8"
 pest_derive = "2.8"
 rand = { version = "0.8", features = ["small_rng"] }
 getrandom = { version = "0.2", features = ["js"]}
+serde = "1.0.219"
+serde_derive = "1.0.219"

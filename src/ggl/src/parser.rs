@@ -4,7 +4,56 @@ use pest_derive::Parser;
 use std::collections::HashMap;
 
 #[derive(Parser)]
-#[grammar = "ggl.pest"]
+#[grammar_inline = r#"
+// Whitespace and comments
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+// Identifiers and literals
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+boolean = @{ "true" | "false" }
+
+// Values
+value = { string | number | boolean | ident }
+
+// Attributes
+attribute = { ident ~ "=" ~ value }
+attribute_list = { (attribute ~ ("," ~ attribute)*)? }
+attributes = { "[" ~ attribute_list ~ "]" }
+
+// Node declarations
+node_type = { ":" ~ ident }
+node_decl = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
+
+// Edge declarations
+edge_op = { "->" | "--" }
+edge_decl = { "edge" ~ ident? ~ ":" ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
+
+// Generator statements
+param = { ident ~ ":" ~ value }
+param_list = { (param ~ ";")* }
+generate_stmt = { "generate" ~ ident ~ "{" ~ param_list ~ "}" }
+
+// Rule patterns
+node_pattern = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
+edge_pattern = { ("edge" ~ ident? ~ ":")? ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
+pattern = { "{" ~ (node_pattern | edge_pattern)* ~ "}" }
+
+// Rule definition
+rule_def = { "rule" ~ ident ~ "{" ~ "lhs" ~ pattern ~ "rhs" ~ pattern ~ "}" }
+
+// Rule application
+apply_rule = { "apply" ~ ident ~ number ~ "times" ~ ";" }
+
+// Graph statements
+statement = { node_decl | edge_decl | generate_stmt | rule_def | apply_rule }
+graph = { "graph" ~ ident? ~ "{" ~ statement* ~ "}" }
+
+// Entry point
+program = { SOI ~ graph ~ EOI }
+"#]
 pub struct GGLParser;
 
 #[derive(Debug, Clone)]
@@ -59,7 +108,7 @@ pub enum GGLStatement {
 
 pub fn parse_ggl(input: &str) -> Result<Vec<GGLStatement>, String> {
     let pairs = <GGLParser as PestParser<Rule>>::parse(Rule::program, input)
-        .map_err(|e| format!("Parse error: {}", e))?;
+        .map_err(|e| format!("Parse error: {e}"))?;
 
     let mut statements = Vec::new();
 
@@ -161,7 +210,7 @@ fn parse_edge_decl(pair: pest::iterators::Pair<Rule>) -> Result<EdgeDeclaration,
             // No explicit ID: either "edge: source -> target" or "source -> target"
             source = idents[0].clone();
             target = idents[1].clone();
-            id = format!("e{}_{}", source, target);
+            id = format!("e{source}_{target}");
         }
         3 => {
             // Explicit ID: edge id: source -> target
@@ -268,7 +317,7 @@ fn parse_apply_rule(pair: pest::iterators::Pair<Rule>) -> Result<ApplyRuleStatem
                 iterations = inner_pair
                     .as_str()
                     .parse::<usize>()
-                    .map_err(|e| format!("Invalid iteration count: {}", e))?;
+                    .map_err(|e| format!("Invalid iteration count: {e}"))?;
             }
             _ => (),
         }
@@ -315,12 +364,12 @@ fn parse_value(pair: pest::iterators::Pair<Rule>) -> Result<MetadataValue, Strin
                 num_str
                     .parse::<f64>()
                     .map(MetadataValue::Float)
-                    .map_err(|e| format!("Invalid float: {}", e))
+                    .map_err(|e| format!("Invalid float: {e}"))
             } else {
                 num_str
                     .parse::<i64>()
                     .map(MetadataValue::Integer)
-                    .map_err(|e| format!("Invalid integer: {}", e))
+                    .map_err(|e| format!("Invalid integer: {e}"))
             }
         }
         Rule::boolean => Ok(MetadataValue::Boolean(value_pair.as_str() == "true")),

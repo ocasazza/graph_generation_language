@@ -189,6 +189,8 @@ dependencies = [
  "pest",
  "pest_derive",
  "rand",
+ "serde",
+ "serde_derive",
  "serde_json",
 ]
 
@@ -216,8 +218,11 @@ dependencies = [
 name = "ggl_wasm"
 version = "0.0.3"
 dependencies = [
+ "console_error_panic_hook",
  "ggl",
+ "serde_json",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

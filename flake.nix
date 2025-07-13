@@ -48,10 +48,9 @@
               lib.any file.hasExt [
                 "html"
                 "scss"
+                "pest"
               ]
             ) unfilteredRoot)
-            # Example of a folder for images, icons, etc
-            # (lib.fileset.maybeMisssing ./assets)
           ];
         };
 
@@ -128,13 +127,13 @@
           doCheck = false;
           buildPhaseCargoCommand = ''
             HOME=$(mktemp -d fake-homeXXXX)
-            cd ./web
+            cd ./src/ggl_wasm
             wasm-pack build --target web --out-dir pkg
             cd ..
           '';
           installPhaseCommand = ''
             mkdir -p $out
-            cp -r ./web/pkg $out/
+            cp -r ./src/ggl_wasm/pkg $out/
           '';
           nativeBuildInputs = with pkgs; [
             binaryen

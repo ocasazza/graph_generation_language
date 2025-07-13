@@ -1,5 +1,5 @@
 use clap::Parser;
-use ggl_lib::GGLEngine;
+use ggl::GGLEngine;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut buffer = String::new();
             io::stdin()
                 .read_to_string(&mut buffer)
-                .map_err(|e| format!("Failed to read from stdin: {}", e))?;
+                .map_err(|e| format!("Failed to read from stdin: {e}"))?;
             buffer
         }
     };
@@ -68,14 +68,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut engine = GGLEngine::new();
     let result = engine
         .generate_from_ggl(&ggl_code)
-        .map_err(|e| format!("GGL processing error: {}", e))?;
+        .map_err(|e| format!("GGL processing error: {e}"))?;
 
     // Format output
     let output = if args.pretty {
         let parsed: serde_json::Value = serde_json::from_str(&result)
-            .map_err(|e| format!("Failed to parse generated JSON: {}", e))?;
+            .map_err(|e| format!("Failed to parse generated JSON: {e}"))?;
         serde_json::to_string_pretty(&parsed)
-            .map_err(|e| format!("Failed to format JSON: {}", e))?
+            .map_err(|e| format!("Failed to format JSON: {e}"))?
     } else {
         result
     };
@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|e| format!("Failed to write output file '{}': {}", path.display(), e))?;
         }
         None => {
-            println!("{}", output);
+            println!("{output}");
         }
     }
 
