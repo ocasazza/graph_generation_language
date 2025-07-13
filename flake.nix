@@ -88,7 +88,7 @@
 
         # ---------------------------------
         # build the library / ggl rust crate
-        # that can be published to crates.io
+        # that can be published to src.io
         # ---------------------------------
         graphGenerationLanguage = craneLib.buildPackage (
           nativeArgs
@@ -174,7 +174,7 @@
             cargoArtifacts = clientCargoArtifacts;
             # Trunk expects the current directory to be the crate to compile
             preBuild = ''
-              cd ./crates/graphGenerationLanguageClient
+              cd ./src/graphGenerationLanguageClient
             '';
             # After building, move the `dist` artifacts and restore the working directory
             postBuild = ''
@@ -229,12 +229,16 @@
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               # Here we don't care about serving the frontend
-              CLIENT_DIST = "./client";
+              CLIENT_DIST = "./src/ggl_client";
             }
           );
 
           # Check formatting
-          fmt = craneLib.cargoFmt commonArgs;
+          fmt = craneLib.cargoFmt (
+            commonArgs // {
+              inherit src;
+            }
+          );
         };
 
         packages.default = graphGenerationLanguage;

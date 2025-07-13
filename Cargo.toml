@@ -1,9 +1,9 @@
 [workspace]
 members = [
-  "./crates/ggl",
-  "./crates/ggl_cli",
-  "./crates/ggl_wasm",
-  "./crates/ggl_client",
+  "src/ggl",
+  "src/ggl_cli",
+  "src/ggl_wasm",
+  "src/ggl_client",
 ]
 resolver = "2"
 
