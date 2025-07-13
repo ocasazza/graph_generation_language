@@ -56,8 +56,8 @@
 //!
 //! Building from source:
 //! ```bash
-//! git clone https://github.com/ocasazza/graph-generation-language.git
-//! cd graph-generation-language
+//! git clone https://github.com/ocasazza/graph_generation_language.git
+//! cd graph_generation_language
 //! cargo build --release
 //! ```
 //!

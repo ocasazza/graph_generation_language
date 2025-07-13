@@ -12,9 +12,9 @@ authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
 edition = "2021"
 version = "0.0.3"
 license = "MIT"
-repository = "https://github.com/ocasazza/graph-generation-language"
-homepage = "https://ocasazza.github.io/graph-generation-language/"
-documentation = "https://ocasazza.github.io/graph-generation-language/"
+repository = "https://github.com/ocasazza/graph_generation_language"
+homepage = "https://ocasazza.github.io/graph_generation_language/"
+documentation = "https://ocasazza.github.io/graph_generation_language/"
 readme = "README.md"
 keywords = ["graph", "dsl", "wasm", "javascript", "typescript"]
 
