@@ -15,7 +15,7 @@ license = "MIT"
 repository = "https://github.com/ocasazza/graph_generation_language"
 homepage = "https://ocasazza.github.io/graph_generation_language/"
 documentation = "https://ocasazza.github.io/graph_generation_language/"
-readme = "README.md"
+readme = "readme.md"
 keywords = ["graph", "dsl", "wasm", "javascript", "typescript"]
 
 [workspace.metadata.crane]
