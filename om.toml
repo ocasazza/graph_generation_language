@@ -1,27 +1,8 @@
 # Omnix configuration for ggl
 # This ensures consistent CI behavior across platforms
 
-[ci]
-# Build all packages and checks
-build = [
-  "packages.default",
-  "checks.clippy",
-  "checks.fmt"
-]
-
-# Additional settings for cross-platform compatibility
-[ci.systems]
-# Explicitly specify which systems to support
-# This helps avoid platform-specific issues
-include = [
-  "x86_64-linux",
-  "aarch64-linux",
-  "x86_64-darwin",
-  "aarch64-darwin"
-]
-
 [ci.options]
 # Increase timeout for WASM builds which can be slow
 timeout = 3600
 # Use more verbose output for debugging
-verbose = true
+verbose = false
