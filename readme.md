@@ -1,7 +1,6 @@
 # Graph Generation Language (GGL)
 
 A domain-specific language for creating and manipulating graphs through declarative syntax. GGL allows you to define graph structures, generate common graph topologies, and apply transformation rules to evolve graphs over time.
-st suites including parser, generator, rule, and integration tests.
 
 [![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://ocasazza.github.io/graph-generation-language/)
 
