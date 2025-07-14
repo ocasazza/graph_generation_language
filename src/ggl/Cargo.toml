@@ -1,16 +1,14 @@
 [package]
 name = "ggl"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-homepage.workspace = true
-documentation.workspace = true
-readme.workspace = true
-keywords.workspace = true
-description = "Core library for the Graph Generation Language (GGL)"
-include = ["src/**/*", "ggl.pest", "build.rs"]
+authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
+edition = "2021"
+version = "0.0.3"
+license = "MIT"
+repository = "https://github.com/ocasazza/graph_generation_language"
+homepage = "https://ocasazza.github.io/graph_generation_language/"
+documentation = "https://ocasazza.github.io/graph_generation_language/"
+readme = "readme.md"
+keywords = ["graph", "dsl", "wasm", "javascript", "typescript"]
 
 [dependencies]
 serde_json = "1.0"
