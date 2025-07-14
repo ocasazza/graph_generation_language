@@ -1,5 +1,5 @@
 [package]
-name = "ggl"
+name = "graph_generation_language"
 authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
 edition = "2021"
 version = "0.0.3"
