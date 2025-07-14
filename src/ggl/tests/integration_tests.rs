@@ -24,7 +24,7 @@ mod basic_integration_tests {
         );
 
         let json_str = result.unwrap();
-        println!("Generated JSON: {}", json_str);
+        println!("Generated JSON: {json_str}");
         let graph: Value = serde_json::from_str(&json_str).unwrap();
         println!(
             "Alice age value: {:?}",
@@ -696,7 +696,7 @@ mod error_handling_tests {
 
         for program in invalid_programs {
             let result = engine.generate_from_ggl(program);
-            assert!(result.is_err(), "Expected error for program: {}", program);
+            assert!(result.is_err(), "Expected error for program: {program}");
         }
     }
 

@@ -17,11 +17,10 @@ mod complete_graph_tests {
 
         // Verify all nodes exist
         for i in 0..5 {
-            let node_id = format!("n{}", i);
+            let node_id = format!("n{i}");
             assert!(
                 graph.get_node(&node_id).is_some(),
-                "Node {} should exist",
-                node_id
+                "Node {node_id} should exist"
             );
         }
     }
@@ -51,11 +50,10 @@ mod complete_graph_tests {
 
         // Verify custom prefix is used
         for i in 0..3 {
-            let node_id = format!("vertex{}", i);
+            let node_id = format!("vertex{i}");
             assert!(
                 graph.get_node(&node_id).is_some(),
-                "Node {} should exist",
-                node_id
+                "Node {node_id} should exist"
             );
         }
     }

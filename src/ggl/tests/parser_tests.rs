@@ -38,7 +38,7 @@ mod lexical_tests {
         {
             match &statements[i] {
                 GGLStatement::NodeDecl(node) => assert_eq!(node.id, *expected_id),
-                _ => panic!("Expected NodeDecl at position {}", i),
+                _ => panic!("Expected NodeDecl at position {i}"),
             }
         }
     }
@@ -74,9 +74,9 @@ mod lexical_tests {
             match &statements[i] {
                 GGLStatement::NodeDecl(node) => match node.attributes.get("label") {
                     Some(MetadataValue::String(s)) => assert_eq!(s, expected_label),
-                    _ => panic!("Expected string label at position {}", i),
+                    _ => panic!("Expected string label at position {i}"),
                 },
-                _ => panic!("Expected NodeDecl at position {}", i),
+                _ => panic!("Expected NodeDecl at position {i}"),
             }
         }
     }
@@ -127,12 +127,12 @@ mod lexical_tests {
                             assert_eq!(*n, *expected);
                         }
                         (Some(MetadataValue::Float(n)), ExpectedWeight::Float(expected)) => {
-                            assert!((n - expected).abs() < f64::EPSILON, "Expected {}, got {}", expected, n);
+                            assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
                         }
-                        _ => panic!("Expected correct number type at position {}", i),
+                        _ => panic!("Expected correct number type at position {i}"),
                     }
                 }
-                _ => panic!("Expected NodeDecl at position {}", i),
+                _ => panic!("Expected NodeDecl at position {i}"),
             }
         }
     }
@@ -905,7 +905,7 @@ mod error_handling_tests {
 
         for input in invalid_inputs {
             let result = parse_ggl(input);
-            assert!(result.is_err(), "Expected error for input: {}", input);
+            assert!(result.is_err(), "Expected error for input: {input}");
         }
     }
 

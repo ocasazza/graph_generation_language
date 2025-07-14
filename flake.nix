@@ -269,6 +269,14 @@
           '';
         };
 
+        apps.fmt = flake-utils.lib.mkApp {
+          name = "fmt";
+          drv = pkgs.writeShellScriptBin "fmt" ''
+            set -euo pipefail
+            nix develop -c cargo clippy --all-targets --fix --allow-dirty
+          '';
+        };
+
         devShells.default = craneLib.devShell {
           # Inherit inputs from checks.
           checks = self.checks.${system};

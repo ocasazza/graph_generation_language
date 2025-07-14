@@ -1068,7 +1068,7 @@ mod performance_tests {
 
         // Create a moderately large graph
         for i in 0..100 {
-            graph.add_node(Node::new(format!("n{}", i)));
+            graph.add_node(Node::new(format!("n{i}")));
         }
 
         assert_eq!(graph.node_count(), 100);
