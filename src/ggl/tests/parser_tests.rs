@@ -505,17 +505,17 @@ mod generator_statement_tests {
         assert_eq!(statements.len(), 1);
 
         match &statements[0] {
-            GGLStatement::GenerateStmt(gen) => {
-                assert_eq!(gen.name, "grid");
-                assert_eq!(gen.params.len(), 4);
-                assert_eq!(gen.params.get("rows"), Some(&MetadataValue::Integer(3)));
-                assert_eq!(gen.params.get("cols"), Some(&MetadataValue::Integer(4)));
+            GGLStatement::GenerateStmt(generator) => {
+                assert_eq!(generator.name, "grid");
+                assert_eq!(generator.params.len(), 4);
+                assert_eq!(generator.params.get("rows"), Some(&MetadataValue::Integer(3)));
+                assert_eq!(generator.params.get("cols"), Some(&MetadataValue::Integer(4)));
                 assert_eq!(
-                    gen.params.get("prefix"),
+                    generator.params.get("prefix"),
                     Some(&MetadataValue::String("node".to_string()))
                 );
                 assert_eq!(
-                    gen.params.get("periodic"),
+                    generator.params.get("periodic"),
                     Some(&MetadataValue::Boolean(true))
                 );
             }
