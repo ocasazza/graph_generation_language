@@ -161,7 +161,6 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-
       - name: Prepare GitHub Pages content
         run: |
           # Extract documentation from crane-template-doc artifact
