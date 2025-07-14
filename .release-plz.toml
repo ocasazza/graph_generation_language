@@ -5,7 +5,7 @@ allow_dirty = true # allow updating repositories with uncommitted changes
 features_always_increment_minor = true
 
 [[package]]
-name = "ggl"
+name = "graph_generation_language"
 changelog_update = true # enable changelog update
 publish = true
 
