@@ -3,7 +3,7 @@
 //! This crate provides WebAssembly bindings for the GGL library, allowing
 //! GGL to be used in web browsers and other JavaScript environments.
 
-use ggl::GGLEngine;
+use graph_generation_language::GGLEngine;
 use wasm_bindgen::prelude::*;
 
 // When the `console_error_panic_hook` feature is enabled, we can call the

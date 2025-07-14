@@ -1,5 +1,5 @@
 use clap::Parser;
-use ggl::GGLEngine;
+use graph_generation_language::GGLEngine;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;

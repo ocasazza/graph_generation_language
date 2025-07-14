@@ -21,7 +21,7 @@ fn main() {
 
 // use gloo::net;
 // use yew::prelude::*;
-// use ggl::Post;
+// use graph_generation_language::Post;
 
 // async fn request_posts() -> Vec<Post> {
 //     net::http::Request::get("http://localhost:8000/posts")

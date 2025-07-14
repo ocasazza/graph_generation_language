@@ -55,7 +55,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use ggl::types::MetadataValue;
+/// use graph_generation_language::types::MetadataValue;
 ///
 /// let name = MetadataValue::String("Alice".to_string());
 /// let age = MetadataValue::Integer(30);
@@ -98,7 +98,7 @@ pub enum MetadataValue {
 /// # Examples
 ///
 /// ```rust
-/// use ggl::types::{Node, MetadataValue};
+/// use graph_generation_language::types::{Node, MetadataValue};
 ///
 /// // Simple node
 /// let node = Node::new("alice".to_string());
@@ -145,7 +145,7 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Node;
+    /// use graph_generation_language::types::Node;
     ///
     /// let node = Node::new("alice".to_string());
     /// assert_eq!(node.id, "alice");
@@ -173,7 +173,7 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Node;
+    /// use graph_generation_language::types::Node;
     ///
     /// let node = Node::new("alice".to_string())
     ///     .with_type("person".to_string());
@@ -197,7 +197,7 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Node, MetadataValue};
+    /// use graph_generation_language::types::{Node, MetadataValue};
     ///
     /// let node = Node::new("alice".to_string())
     ///     .with_metadata("age".to_string(), MetadataValue::Integer(30))
@@ -220,7 +220,7 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Node, MetadataValue};
+    /// use graph_generation_language::types::{Node, MetadataValue};
     /// use std::collections::HashMap;
     ///
     /// let mut attrs = HashMap::new();
@@ -247,7 +247,7 @@ impl Node {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Node;
+    /// use graph_generation_language::types::Node;
     ///
     /// let node = Node::new("alice".to_string())
     ///     .with_position(100.0, 200.0);
@@ -272,7 +272,7 @@ impl Node {
 /// # Examples
 ///
 /// ```rust
-/// use ggl::types::{Edge, MetadataValue};
+/// use graph_generation_language::types::{Edge, MetadataValue};
 ///
 /// // Simple edge
 /// let edge = Edge::new("e1".to_string(), "alice".to_string(), "bob".to_string());
@@ -325,7 +325,7 @@ impl Edge {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Edge;
+    /// use graph_generation_language::types::Edge;
     ///
     /// let edge = Edge::new("e1".to_string(), "alice".to_string(), "bob".to_string());
     /// assert_eq!(edge.id, "e1");
@@ -355,7 +355,7 @@ impl Edge {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Edge;
+    /// use graph_generation_language::types::Edge;
     ///
     /// let edge = Edge::new("e1".to_string(), "alice".to_string(), "bob".to_string())
     ///     .with_type("friendship".to_string());
@@ -379,7 +379,7 @@ impl Edge {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Edge, MetadataValue};
+    /// use graph_generation_language::types::{Edge, MetadataValue};
     ///
     /// let edge = Edge::new("e1".to_string(), "alice".to_string(), "bob".to_string())
     ///     .with_metadata("weight".to_string(), MetadataValue::Float(0.8))
@@ -402,7 +402,7 @@ impl Edge {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Edge, MetadataValue};
+    /// use graph_generation_language::types::{Edge, MetadataValue};
     /// use std::collections::HashMap;
     ///
     /// let mut attrs = HashMap::new();
@@ -427,7 +427,7 @@ impl Edge {
 /// # Examples
 ///
 /// ```rust
-/// use ggl::types::{Graph, Node, Edge, MetadataValue};
+/// use graph_generation_language::types::{Graph, Node, Edge, MetadataValue};
 ///
 /// let mut graph = Graph::new();
 ///
@@ -486,7 +486,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::Graph;
+    /// use graph_generation_language::types::Graph;
     ///
     /// let graph = Graph::new();
     /// assert_eq!(graph.node_count(), 0);
@@ -510,7 +510,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node};
+    /// use graph_generation_language::types::{Graph, Node};
     ///
     /// let mut graph = Graph::new();
     /// let node = Node::new("alice".to_string());
@@ -535,7 +535,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node, Edge};
+    /// use graph_generation_language::types::{Graph, Node, Edge};
     ///
     /// let mut graph = Graph::new();
     /// graph.add_node(Node::new("alice".to_string()));
@@ -563,7 +563,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node, Edge};
+    /// use graph_generation_language::types::{Graph, Node, Edge};
     ///
     /// let mut graph = Graph::new();
     /// graph.add_node(Node::new("alice".to_string()));
@@ -594,7 +594,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node, Edge};
+    /// use graph_generation_language::types::{Graph, Node, Edge};
     ///
     /// let mut graph = Graph::new();
     /// graph.add_node(Node::new("alice".to_string()));
@@ -622,7 +622,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node};
+    /// use graph_generation_language::types::{Graph, Node};
     ///
     /// let mut graph = Graph::new();
     /// graph.add_node(Node::new("alice".to_string()));
@@ -647,7 +647,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node, Edge};
+    /// use graph_generation_language::types::{Graph, Node, Edge};
     ///
     /// let mut graph = Graph::new();
     /// graph.add_node(Node::new("alice".to_string()));
@@ -666,7 +666,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node};
+    /// use graph_generation_language::types::{Graph, Node};
     ///
     /// let mut graph = Graph::new();
     /// assert_eq!(graph.node_count(), 0);
@@ -684,7 +684,7 @@ impl Graph {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::types::{Graph, Node, Edge};
+    /// use graph_generation_language::types::{Graph, Node, Edge};
     ///
     /// let mut graph = Graph::new();
     /// assert_eq!(graph.edge_count(), 0);

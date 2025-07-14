@@ -2,6 +2,7 @@
 
 [workspace]
 allow_dirty = true # allow updating repositories with uncommitted changes
+features_always_increment_minor = true
 
 [[package]]
 name = "ggl"
@@ -10,7 +11,7 @@ publish = true
 
 [[package]]
 name = "ggl_wasm"
-publish = true
+publish = false
 
 [[package]]
 name = "ggl_cli"

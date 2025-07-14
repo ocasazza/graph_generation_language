@@ -34,8 +34,8 @@
 //! ## Examples
 //!
 //! ```rust
-//! use ggl::generators::generate_complete;
-//! use ggl::types::MetadataValue;
+//! use graph_generation_language::generators::generate_complete;
+//! use graph_generation_language::types::MetadataValue;
 //! use std::collections::HashMap;
 //!
 //! let mut params = HashMap::new();
@@ -81,7 +81,7 @@ pub type GeneratorFn = fn(&HashMap<String, MetadataValue>) -> Result<Graph, Stri
 /// # Examples
 ///
 /// ```rust
-/// use ggl::generators::get_generator;
+/// use graph_generation_language::generators::get_generator;
 ///
 /// let generator = get_generator("complete");
 /// assert!(generator.is_some());
@@ -161,8 +161,8 @@ fn get_param_bool(params: &HashMap<String, MetadataValue>, key: &str, default: b
 /// # Examples
 ///
 /// ```rust
-/// use ggl::generators::generate_complete;
-/// use ggl::types::MetadataValue;
+/// use graph_generation_language::generators::generate_complete;
+/// use graph_generation_language::types::MetadataValue;
 /// use std::collections::HashMap;
 ///
 /// let mut params = HashMap::new();

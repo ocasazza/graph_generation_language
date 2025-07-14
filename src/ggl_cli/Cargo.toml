@@ -11,7 +11,7 @@ name = "ggl"
 path = "src/main.rs"
 
 [dependencies]
-ggl = { path = "../ggl" }
+graph_generation_language = { path = "../ggl" }
 clap = { version = "4.3.14", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

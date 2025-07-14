@@ -182,23 +182,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ggl"
-version = "0.0.3"
-dependencies = [
- "getrandom",
- "pest",
- "pest_derive",
- "rand",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "ggl_cli"
 version = "0.0.3"
 dependencies = [
  "clap",
- "ggl",
+ "graph_generation_language",
  "serde",
  "serde_json",
 ]
@@ -208,7 +196,7 @@ name = "ggl_client"
 version = "0.0.3"
 dependencies = [
  "console_error_panic_hook",
- "ggl",
+ "graph_generation_language",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -218,11 +206,23 @@ name = "ggl_wasm"
 version = "0.0.3"
 dependencies = [
  "console_error_panic_hook",
- "ggl",
+ "graph_generation_language",
  "serde",
  "serde_json",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "graph_generation_language"
+version = "0.0.3"
+dependencies = [
+ "getrandom",
+ "pest",
+ "pest_derive",
+ "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

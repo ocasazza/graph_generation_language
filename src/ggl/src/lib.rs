@@ -98,7 +98,7 @@ use crate::types::{Edge, Graph, Node};
 /// # Examples
 ///
 /// ```rust
-/// use ggl::GGLEngine;
+/// use graph_generation_language::GGLEngine;
 ///
 /// let mut engine = GGLEngine::new();
 /// let ggl_code = r#"
@@ -129,7 +129,7 @@ impl GGLEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::GGLEngine;
+    /// use graph_generation_language::GGLEngine;
     ///
     /// let engine = GGLEngine::new();
     /// ```
@@ -155,7 +155,7 @@ impl GGLEngine {
     /// # Examples
     ///
     /// ```rust
-    /// use ggl::GGLEngine;
+    /// use graph_generation_language::GGLEngine;
     ///
     /// let mut engine = GGLEngine::new();
     /// let ggl_code = r#"
