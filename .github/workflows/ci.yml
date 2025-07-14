@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: ['main']
   push:
-    branches: ['main']
+    branches: ['main', "dev"]
 
 jobs:
   omnix:
@@ -140,8 +140,9 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   pages:
-    needs: release
-    if: ${{ needs.release.outputs.releases_created == 'true' }}
+    needs: omnix
+    # needs: release
+    # if: ${{ needs.release.outputs.releases_created == 'true' }}
     permissions:
       pages: write
       id-token: write
