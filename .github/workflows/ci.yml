@@ -160,24 +160,18 @@ jobs:
       - name: Configure GitHub pages
         id: pages
         uses: actions/configure-pages@v5
-      - name: Prepare documentation from artifacts
-        run: |
-          # Extract documentation from crane-template-doc artifact
-          mkdir -p target/doc/rustdoc
-          if [ -d "artifacts/ggl-doc" ]; then
-            cp -r artifacts/ggl-doc/*ggl-doc*/* target/doc/rustdoc
-          fi
+
 
       - name: Prepare GitHub Pages content
         run: |
+          # Extract documentation from crane-template-doc artifact
+          mkdir -p target/doc/rustdoc
+          # Create rustdocs directory in docs output
+          cp -r artifacts/ggl-doc/*ggl-doc*/* target/doc/rustdoc
           # Create demo directory in docs output
           mkdir -p target/doc/demo
-
           # Copy WASM demo files from client-trunk artifact if available
-          if [ -d "artifacts/ggl_client" ]; then
-            cp -r artifacts/ggl_client/* target/doc/demo/ 2>/dev/null || true
-          fi
-
+          cp -r artifacts/client-trunk/*client-trunk*/* target/doc/demo/ 2>/dev/null || true
           # Copy the GitHub Pages index template as the main index
           cp .github/pages_index.html target/doc/index.html
 
