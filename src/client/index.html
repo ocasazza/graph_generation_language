@@ -1,9 +1,186 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-  <meta charset="utf-8"/>
-  <title>Nix Rust Template Trunk Client</title>
+  <meta charset="utf-8">
+  <title>Graph Generation Language</title>
+  <link data-name="vs/editor/editor.main" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
+  <style>
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #000000;
+      color: wheat;
+    }
+
+    .container {
+      border: 1px solid wheat;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .description {
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .links {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .link-card {
+      text-decoration: none;
+      padding: 20px 30px;
+      border: 1px solid wheat;
+      border-radius: 6px;
+      transition: background-color 0.2s;
+      min-width: 200px;
+      color: wheat;
+    }
+
+    .link-card:hover {
+      text-decoration: none;
+      background-color: rgb(99, 98, 97, .5);
+    }
+
+    .link-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .link-desc {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    #editor-container {
+    }
+
+    .generate-btn {
+      background-color: transparent;
+      color: wheat;
+      border: 1px solid wheat;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: 'Courier New', Courier, monospace;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .generate-btn:hover {
+      background-color: rgb(99, 98, 97, .5);
+    }
+
+    .output-area {
+      background-color: #1a1a1a;
+      border: 1px solid wheat;
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 20px;
+      text-align: left;
+      white-space: pre-wrap;
+      font-family: 'Courier New', Courier, monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .error {
+      color: #ff6b6b;
+    }
+
+    .success {
+      color: #51cf66;
+    }
+
+    /* GGL Editor Styles */
+    .ggl-editor-container {
+      text-align: left;
+    }
+
+    .ggl-editor-layout {
+      display: flex;
+      gap: 20px;
+      height: 500px;
+    }
+
+    .ggl-editor-panel {
+      flex: 1;
+      height: 100%;
+      border: 1px solid wheat;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .ggl-monaco-editor {
+      height: 100%;
+      position: relative;
+    }
+
+    .ggl-output-panel {
+      flex: 1;
+      height: 100%;
+      border: 1px solid wheat;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .ggl-output-area {
+      height: 100%;
+      max-height: none;
+      overflow-y: auto;
+      border: none;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #1a1a1a;
+      border-radius: 0;
+      text-align: left;
+      white-space: pre-wrap;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .ggl-generate-btn {
+      margin-top: 10px;
+    }
+
+    .ggl-monaco-fallback {
+      width: 100%;
+      height: 100%;
+      background: #1e1e1e;
+      color: wheat;
+      border: 1px solid wheat;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      resize: none;
+    }
+
+    .ggl-monaco-fallback.hidden {
+      display: none;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
 </head>
+
 <body>
+  <div class="container">
+    <h1>🌐 Graph Generation Language</h1>
+    <p class="description">
+      A domain-specific language for creating and manipulating graphs through declarative syntax. GGL allows you to define graph structures, generate common graph topologies, and apply transformation rules to evolve graphs over time.
+    </p>
+  </div>
+  <div class="container" id="app">
+  </div>
+  <script type="module">
+    import init from '/pkg/ggl_client.js';
+    init();
+  </script>
 </body>
+
 </html>

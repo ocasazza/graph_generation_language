@@ -127,13 +127,13 @@
           doCheck = false;
           buildPhaseCargoCommand = ''
             HOME=$(mktemp -d fake-homeXXXX)
-            cd src/ggl_wasm
+            cd src/wasm
             wasm-pack build --target web --out-dir pkg
             cd ../..
           '';
           installPhaseCommand = ''
             mkdir -p $out
-            cp -r ./src/ggl_wasm/pkg $out/
+            cp -r ./src/wasm/pkg $out/
           '';
           nativeBuildInputs = with pkgs; [
             binaryen
@@ -173,7 +173,7 @@
             cargoArtifacts = clientCargoArtifacts;
             # Trunk expects the current directory to be the crate to compile
             preBuild = ''
-              cd ./src/ggl_client
+              cd ./src/client
             '';
             # After building, move the `dist` artifacts and restore the working directory
             postBuild = ''
@@ -229,7 +229,7 @@
               # cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               # Here we don't care about serving the frontend
-              CLIENT_DIST = "./src/ggl_client";
+              CLIENT_DIST = "./src/client";
             }
           );
         };

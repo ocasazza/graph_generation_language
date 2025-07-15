@@ -10,7 +10,7 @@ documentation.workspace = true
 readme.workspace = true
 keywords.workspace = true
 description = "Core library for the Graph Generation Language (GGL)"
-include = ["src/**/*", "ggl.pest", "build.rs"]
+include = ["src/**/*", "ggl.pest"]
 
 [dependencies]
 serde_json = "1.0"
