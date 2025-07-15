@@ -79,7 +79,6 @@ impl Component for App {
 
         html! {
             <div class="ggl-editor-container">
-                <h2>{"🔧 GGL Editor"}</h2>
                 <div class="ggl-editor-layout">
                     // Left panel - Editor wrapper
                     <div class="ggl-editor-panel">
@@ -90,7 +89,7 @@ impl Component for App {
                             theme="vs-dark"
                         />
                     </div>
-
+                    <div style="height: 100%; width: 12px;"></div>
                     // Right panel - Output wrapper
                     <div class="ggl-output-panel">
                         {self.render_output()}
@@ -125,5 +124,12 @@ impl App {
 }
 
 fn main() {
-    yew::Renderer::<App>::new().render();
+    let app_element = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id("app")
+        .expect("Failed to find #app element");
+
+    yew::Renderer::<App>::with_root(app_element).render();
 }
