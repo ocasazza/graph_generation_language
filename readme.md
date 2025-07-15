@@ -33,7 +33,7 @@ Available recipes:
 
 ### Installation
 
-#### Option 1: Using Nix Flake (Recommended)
+Using Nix Flake
 
 If you have [Nix](https://nixos.org/download.html) and [direnv](https://direnv.net/) installed:
 
@@ -56,14 +56,6 @@ nix develop -c cargo run
 nix build
 ```
 
-#### Option 2: Manual Installation
-
-```bash
-git clone https://github.com/ocasazza/graph-generation-language.git
-cd graph-generation-language
-cargo build --release
-```
-
 For documentation building:
 
 ```bash
@@ -71,6 +63,51 @@ cargo doc --document-private-items --package graph_generation_language --all-fea
 ```
 
 Once built, these docs can be viewed locally at `./graph-generation-language/target/doc/graph_generation_language/index.html`
+
+For more, see nix apps:
+
+```bash
+> om show flake.nix
+
+📦 Packages (nix build flake.nix#<name>)
+╭───────────────────────────────┬─────────────╮
+│ name                          │ description │
+├───────────────────────────────┼─────────────┤
+│ graphGenerationLanguageCli    │ N/A         │
+│ graphGenerationLanguageWasm   │ N/A         │
+│ graphGenerationLanguageClient │ N/A         │
+│ default                       │ N/A         │
+╰───────────────────────────────┴─────────────╯
+
+🐚 Devshells (nix develop flake.nix#<name>)
+╭─────────┬─────────────╮
+│ name    │ description │
+├─────────┼─────────────┤
+│ default │ N/A         │
+╰─────────┴─────────────╯
+
+🚀 Apps (nix run flake.nix#<name>)
+╭─────────────────────┬─────────────╮
+│ name                │ description │
+├─────────────────────┼─────────────┤
+│ fmt                 │ N/A         │
+│ server              │ N/A         │
+│ get-build-artifacts │ N/A         │
+│ update-repo-info    │ N/A         │
+╰─────────────────────┴─────────────╯
+
+🔍 Checks (nix flake check)
+╭───────────────────────────────┬─────────────╮
+│ name                          │ description │
+├───────────────────────────────┼─────────────┤
+│ clippy                        │ N/A         │
+│ docs                          │ N/A         │
+│ graphGenerationLanguageClient │ N/A         │
+│ graphGenerationLanguage       │ N/A         │
+│ graphGenerationLanguageCli    │ N/A         │
+│ graphGenerationLanguageWasm   │ N/A         │
+╰───────────────────────────────┴─────────────╯
+```
 
 ### Basic Example
 
