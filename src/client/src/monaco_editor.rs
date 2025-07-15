@@ -192,6 +192,7 @@ impl MonacoEditor {
     }
 
     /// Set the value in the Monaco editor
+    #[allow(dead_code)]
     pub fn set_value(value: &str) {
         let set_value_code = format!(
             "if (window.monacoEditor) {{ window.monacoEditor.setValue(`{}`); }}",
