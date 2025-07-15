@@ -99,7 +99,7 @@ impl Component for MonacoEditor {
                 new_value.replace('`', r#"\`"#).replace("${", r#"\${"#)
             );
             if let Err(e) = js_sys::eval(&set_value_code) {
-                log(&format!("Error updating Monaco value: {:?}", e));
+                log(&format!("Error updating Monaco value: {e:?}"));
             }
         }
         false
@@ -176,7 +176,7 @@ impl MonacoEditor {
 
         // Execute setup code
         if let Err(e) = js_sys::eval(&setup_code) {
-            log(&format!("Error setting up Monaco: {:?}", e));
+            log(&format!("Error setting up Monaco: {e:?}"));
         }
 
         // Mark Monaco as ready
@@ -198,7 +198,7 @@ impl MonacoEditor {
             value.replace('`', r#"\`"#).replace("${", r#"\${"#)
         );
         if let Err(e) = js_sys::eval(&set_value_code) {
-            log(&format!("Error setting Monaco value: {:?}", e));
+            log(&format!("Error setting Monaco value: {e:?}"));
         }
     }
 }

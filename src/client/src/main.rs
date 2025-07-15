@@ -107,7 +107,7 @@ impl App {
     fn render_output(&self) -> Html {
         let output_content = match &self.json_output {
             Some(Ok(json)) => json.clone(),
-            Some(Err(error)) => format!("// Error:\n{}", error),
+            Some(Err(error)) => format!("// Error:\n{error}"),
             None => "// Click 'Generate Graph' to process your GGL code...".to_string(),
         };
 
