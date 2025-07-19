@@ -78,7 +78,7 @@
         # i.e. non-wasm / non-browser stuff first
         # ---------------------------------------
         nativeArgs = commonArgs // {
-          pname = "ggl";
+          pname = "graph_generation_language";
         };
 
         # Build *just* the cargo dependencies, so we can reuse
@@ -112,7 +112,7 @@
         # can be published to npm
         # ----------------------------
         wasmArgs = commonArgs // {
-          pname = "ggl_web";
+          pname = "ggl_wasm";
           cargoExtraArgs = "--package=ggl_wasm";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
@@ -155,7 +155,7 @@
         # that uses the ggl library
         # -----------------------------
         clientArgs = commonArgs // {
-          pname = "client";
+          pname = "ggl_client";
           cargoExtraArgs = "--package=ggl_client";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
@@ -240,7 +240,7 @@
         packages.graphGenerationLanguageWasm = graphGenerationLanguageWasm;
 
         apps.server = flake-utils.lib.mkApp {
-          name = "ggl-server";
+          name = "graphGenerationLanguageCli";
           drv = graphGenerationLanguageCli;
         };
 
