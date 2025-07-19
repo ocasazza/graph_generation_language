@@ -6,28 +6,20 @@
   <title>Graph Generation Language</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
-      background-color: #f5f5f5;
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #000000;
+      color: wheat;
     }
 
     .container {
-      background: white;
+      border: 1px solid wheat;
       padding: 40px;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       text-align: center;
     }
 
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-
     .description {
-      color: #666;
       margin-bottom: 40px;
       line-height: 1.6;
     }
@@ -40,19 +32,18 @@
     }
 
     .link-card {
-      background: #007bff;
-      color: white;
       text-decoration: none;
       padding: 20px 30px;
+      border: 1px solid wheat;
       border-radius: 6px;
       transition: background-color 0.2s;
       min-width: 200px;
+      color: wheat;
     }
 
     .link-card:hover {
-      background: #0056b3;
-      color: white;
       text-decoration: none;
+      background-color: rgb(99, 98, 97, .5);
     }
 
     .link-title {
@@ -70,16 +61,16 @@
 
 <body>
   <div class="container">
-    <h1>🌐 Rust Nix Template</h1>
+    <h1>🌐 Graph Generation Language</h1>
     <p class="description">
-      A Nix + Rust template.
+      A domain-specific language for creating and manipulating graphs through declarative syntax. GGL allows you to define graph structures, generate common graph topologies, and apply transformation rules to evolve graphs over time.
     </p>
     <div class="links">
-      <a href="./rustdoc/index.html" class="link-card">
+      <a href="./rustdoc/share/doc/graph_generation_language/index.html" class="link-card">
         <div class="link-title">📚 Documentation</div>
         <div class="link-desc">API docs and library reference</div>
       </a>
-      <a href="./demo/" class="link-card">
+      <a href="./demo/index.html" class="link-card">
         <div class="link-title">🚀 Live Demo</div>
         <div class="link-desc">Try a in your browser</div>
       </a>

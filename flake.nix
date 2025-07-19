@@ -78,7 +78,7 @@
         # i.e. non-wasm / non-browser stuff first
         # ---------------------------------------
         nativeArgs = commonArgs // {
-          pname = "ggl";
+          pname = "graph_generation_language";
         };
 
         # Build *just* the cargo dependencies, so we can reuse
@@ -112,7 +112,7 @@
         # can be published to npm
         # ----------------------------
         wasmArgs = commonArgs // {
-          pname = "ggl_web";
+          pname = "ggl_wasm";
           cargoExtraArgs = "--package=ggl_wasm";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
@@ -127,13 +127,13 @@
           doCheck = false;
           buildPhaseCargoCommand = ''
             HOME=$(mktemp -d fake-homeXXXX)
-            cd src/ggl_wasm
+            cd src/wasm
             wasm-pack build --target web --out-dir pkg
             cd ../..
           '';
           installPhaseCommand = ''
             mkdir -p $out
-            cp -r ./src/ggl_wasm/pkg $out/
+            cp -r ./src/wasm/pkg $out/
           '';
           nativeBuildInputs = with pkgs; [
             binaryen
@@ -155,7 +155,7 @@
         # that uses the ggl library
         # -----------------------------
         clientArgs = commonArgs // {
-          pname = "client";
+          pname = "ggl_client";
           cargoExtraArgs = "--package=ggl_client";
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
         };
@@ -173,7 +173,7 @@
             cargoArtifacts = clientCargoArtifacts;
             # Trunk expects the current directory to be the crate to compile
             preBuild = ''
-              cd ./src/ggl_client
+              cd ./src/client
             '';
             # After building, move the `dist` artifacts and restore the working directory
             postBuild = ''
@@ -229,7 +229,7 @@
               # cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               # Here we don't care about serving the frontend
-              CLIENT_DIST = "./src/ggl_client";
+              CLIENT_DIST = "./src/client";
             }
           );
         };
@@ -240,7 +240,7 @@
         packages.graphGenerationLanguageWasm = graphGenerationLanguageWasm;
 
         apps.server = flake-utils.lib.mkApp {
-          name = "ggl-server";
+          name = "graphGenerationLanguageCli";
           drv = graphGenerationLanguageCli;
         };
 

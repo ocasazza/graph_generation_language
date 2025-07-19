@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Graph Generation Language</title>
+    <link
+      data-name="vs/editor/editor.main"
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <link data-trunk rel="scss" href="src/main.scss" />
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>🌐 Graph Generation Language</h1>
+      <p class="description">
+        A domain-specific language for creating and manipulating graphs through
+        declarative syntax. GGL allows you to define graph structures, generate
+        common graph topologies, and apply transformation rules to evolve graphs
+        over time.
+      </p>
+    </div>
+    <div class="container" id="app"></div>
+    <script type="module">
+      import init from '/pkg/ggl_client.js';
+      init();
+    </script>
+  </body>
+</html>

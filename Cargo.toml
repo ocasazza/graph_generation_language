@@ -1,9 +1,9 @@
 [workspace]
 members = [
-  "src/ggl",
-  "src/ggl_cli",
-  "src/ggl_wasm",
-  "src/ggl_client",
+  "src/lib",
+  "src/cli",
+  "src/wasm",
+  "src/client",
 ]
 resolver = "2"
 
