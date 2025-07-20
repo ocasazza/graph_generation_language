@@ -29,7 +29,7 @@ fn get_param_int(params: &HashMap<String, MetadataValue>, key: &str) -> Result<u
     params
         .get(key)
         .ok_or_else(|| format!("Missing required parameter: '{key}'"))
-        .and_then(|v| v.as_int().map(|n| n as usize))
+        .and_then(|v| v.as_int().map(|n| if n < 0 { 0 } else { n as usize }))
 }
 
 fn get_param_string(
@@ -216,16 +216,16 @@ pub fn generate_star(params: &HashMap<String, MetadataValue>) -> Result<Graph, S
         return Ok(graph);
     }
 
-    let center_id = format!("{prefix}_center");
+    let center_id = format!("{prefix}0");
     graph.add_node(Node::new(center_id.clone()));
 
-    for i in 0..n - 1 {
+    for i in 1..n {
         let spoke_id = format!("{prefix}{i}");
         graph.add_node(Node::new(spoke_id.clone()));
         let (source, target) = if directed {
             (center_id.clone(), spoke_id)
         } else {
-            (spoke_id, center_id.clone())
+            (center_id.clone(), spoke_id)
         };
         graph.add_edge(Edge::new(format!("e_center_{i}"), source, target, directed));
     }
@@ -243,11 +243,13 @@ pub fn generate_tree(params: &HashMap<String, MetadataValue>) -> Result<Graph, S
     let prefix = get_param_string(params, "prefix", "n");
     let mut graph = Graph::new();
 
-    if depth == 0 {
+    // Always create at least the root node
+    graph.add_node(Node::new(format!("{prefix}0")));
+
+    if depth <= 1 {
         return Ok(graph);
     }
 
-    graph.add_node(Node::new(format!("{prefix}0")));
     let mut parent_queue = vec![0];
     let mut id_counter = 1;
 
@@ -297,14 +299,15 @@ pub fn generate_barabasi_albert(
 
     let mut graph = Graph::new();
     let mut rng = thread_rng();
-    let m0 = m + 1; // Initial number of nodes
 
-    // 1. Start with an initial connected graph of m0 nodes
-    for i in 0..m0 {
+    // Start with m nodes and create a complete graph among them
+    for i in 0..m {
         graph.add_node(Node::new(format!("{prefix}{i}")));
     }
-    for i in 0..m0 {
-        for j in i + 1..m0 {
+
+    // Create complete graph among initial m nodes
+    for i in 0..m {
+        for j in i + 1..m {
             graph.add_edge(Edge::new(
                 format!("e{i}_{j}"),
                 format!("{prefix}{i}"),
@@ -314,31 +317,51 @@ pub fn generate_barabasi_albert(
         }
     }
 
+    // Initialize degree list for preferential attachment
     let mut degrees: Vec<String> = graph
         .edges
         .values()
         .flat_map(|e| vec![e.source.clone(), e.target.clone()])
         .collect();
 
-    // 2. Add remaining n - m0 nodes
-    for i in m0..n {
+    // Add remaining n - m nodes
+    for i in m..n {
         let new_node_id = format!("{prefix}{i}");
         graph.add_node(Node::new(new_node_id.clone()));
 
-        let targets: Vec<String> = degrees
-            .choose_multiple(&mut rng, m)
-            .cloned()
-            .collect();
+        // Select m unique targets based on preferential attachment
+        let mut selected_targets = std::collections::HashSet::new();
+        let mut attempts = 0;
 
-        for target_id in targets {
+        while selected_targets.len() < m && attempts < 100 {
+            if let Some(target) = degrees.choose(&mut rng) {
+                selected_targets.insert(target.clone());
+            }
+            attempts += 1;
+        }
+
+        // If we couldn't get enough unique targets, fill with any available nodes
+        if selected_targets.len() < m {
+            for j in 0..i {
+                let node_id = format!("{prefix}{j}");
+                selected_targets.insert(node_id);
+                if selected_targets.len() >= m {
+                    break;
+                }
+            }
+        }
+
+        // Create edges to selected targets
+        for target_id in selected_targets.iter().take(m) {
             graph.add_edge(Edge::new(
                 format!("e{i}_{}", target_id.strip_prefix(&prefix).unwrap_or("?")),
                 new_node_id.clone(),
                 target_id.clone(),
                 false,
             ));
+            // Add both endpoints to degree list for future preferential attachment
             degrees.push(new_node_id.clone());
-            degrees.push(target_id);
+            degrees.push(target_id.clone());
         }
     }
 

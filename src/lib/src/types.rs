@@ -19,6 +19,7 @@ impl MetadataValue {
     pub fn as_int(&self) -> Result<i64, String> {
         match self {
             MetadataValue::Integer(i) => Ok(*i),
+            MetadataValue::Float(f) => Ok(*f as i64),
             _ => Err(format!("Expected an integer, but found {self}")),
         }
     }
