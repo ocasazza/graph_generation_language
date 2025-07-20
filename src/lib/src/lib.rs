@@ -79,16 +79,16 @@
 //! * [`generators`] - Built-in graph generators for common topologies
 //! * [`rules`] - Transformation rule engine for graph manipulation
 
-use std::collections::HashMap;
 
 pub mod generators;
+pub mod interpreter;
 pub mod parser;
 pub mod rules;
 pub mod types;
 
-use crate::generators::get_generator;
-use crate::parser::{parse_ggl, GGLStatement};
-use crate::types::{Edge, Graph, Node};
+use crate::interpreter::Interpreter;
+use crate::parser::parse_ggl;
+use crate::types::Graph;
 
 /// The main GGL engine for parsing and executing GGL programs.
 ///
@@ -114,7 +114,7 @@ use crate::types::{Edge, Graph, Node};
 /// ```
 pub struct GGLEngine {
     graph: Graph,
-    rules: HashMap<String, rules::Rule>,
+    // rules: HashMap<String, rules::Rule>,
 }
 
 impl Default for GGLEngine {
@@ -136,7 +136,7 @@ impl GGLEngine {
     pub fn new() -> Self {
         GGLEngine {
             graph: Graph::new(),
-            rules: HashMap::new(),
+            // rules: HashMap::new(),
         }
     }
 
@@ -175,60 +175,13 @@ impl GGLEngine {
         // Parse GGL code
         let statements = parse_ggl(ggl_code).map_err(|e| format!("Parse error: {e}"))?;
 
-        // Reset graph state
-        self.graph = Graph::new();
-        self.rules.clear();
+        // Create a new interpreter and run the statements
+        let mut interpreter = Interpreter::new();
+        let graph = interpreter.run(&statements)?;
 
-        // Process statements
-        for stmt in statements {
-            match stmt {
-                GGLStatement::NodeDecl(node) => {
-                    self.graph.add_node(
-                        Node::new(node.id.clone())
-                            .with_type(node.node_type.unwrap_or_default())
-                            .with_metadata_map(node.attributes),
-                    );
-                }
-                GGLStatement::EdgeDecl(edge) => {
-                    self.graph.add_edge(
-                        Edge::new(edge.id, edge.source, edge.target)
-                            .with_metadata_map(edge.attributes),
-                    );
-                }
-                GGLStatement::GenerateStmt(gen) => {
-                    if let Some(generator) = get_generator(&gen.name) {
-                        let generated = generator(&gen.params)
-                            .map_err(|e| format!("Generator error: {e}"))?;
-
-                        // Merge generated graph into current graph
-                        for (_, node) in generated.nodes {
-                            self.graph.add_node(node);
-                        }
-                        for (_, edge) in generated.edges {
-                            self.graph.add_edge(edge);
-                        }
-                    } else {
-                        return Err(format!("Unknown generator: {}", gen.name));
-                    }
-                }
-                GGLStatement::RuleDefStmt(rule_def) => {
-                    let rule = rules::Rule {
-                        name: rule_def.name.clone(),
-                        lhs: rule_def.lhs,
-                        rhs: rule_def.rhs,
-                    };
-                    self.rules.insert(rule_def.name, rule);
-                }
-                GGLStatement::ApplyRuleStmt(apply) => {
-                    if let Some(rule) = self.rules.get(&apply.rule_name) {
-                        rule.apply(&mut self.graph, apply.iterations)
-                            .map_err(|e| format!("Rule application error: {e}"))?;
-                    } else {
-                        return Err(format!("Unknown rule: {}", apply.rule_name));
-                    }
-                }
-            }
-        }
+        // Update the engine's state
+        self.graph = graph;
+        // self.rules = interpreter.get_rules();
 
         // Serialize final graph to JSON
         serde_json::to_string(&self.graph).map_err(|e| format!("Serialization error: {e}"))
@@ -244,8 +197,8 @@ impl GGLEngine {
         &mut self.graph
     }
 
-    /// Returns a reference to the current rules.
-    pub fn rules(&self) -> &HashMap<String, rules::Rule> {
-        &self.rules
-    }
+    // /// Returns a reference to the current rules.
+    // pub fn rules(&self) -> &HashMap<String, rules::Rule> {
+    //     &self.rules
+    // }
 }

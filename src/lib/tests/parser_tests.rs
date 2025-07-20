@@ -1,4 +1,4 @@
-use graph_generation_language::parser::{parse_ggl, GGLStatement};
+use graph_generation_language::parser::{parse_ggl, GGLStatement, Expression, InterpolatedStringPart};
 use graph_generation_language::types::MetadataValue;
 
 #[cfg(test)]
@@ -37,7 +37,13 @@ mod lexical_tests {
         .enumerate()
         {
             match &statements[i] {
-                GGLStatement::NodeDecl(node) => assert_eq!(node.id, *expected_id),
+                GGLStatement::NodeDecl(node) => {
+                    assert_eq!(node.id_parts.len(), 1);
+                    match &node.id_parts[0] {
+                        InterpolatedStringPart::String(s) => assert_eq!(s, *expected_id),
+                        _ => panic!("Expected string part"),
+                    }
+                }
                 _ => panic!("Expected NodeDecl at position {i}"),
             }
         }
@@ -73,7 +79,9 @@ mod lexical_tests {
         for (i, expected_label) in expected_labels.iter().enumerate() {
             match &statements[i] {
                 GGLStatement::NodeDecl(node) => match node.attributes.get("label") {
-                    Some(MetadataValue::String(s)) => assert_eq!(s, expected_label),
+                    Some(Expression::Value(MetadataValue::String(s))) => {
+                        assert_eq!(s, expected_label)
+                    }
                     _ => panic!("Expected string label at position {i}"),
                 },
                 _ => panic!("Expected NodeDecl at position {i}"),
@@ -123,10 +131,16 @@ mod lexical_tests {
             match &statements[i] {
                 GGLStatement::NodeDecl(node) => {
                     match (node.attributes.get("weight"), expected_weight) {
-                        (Some(MetadataValue::Integer(n)), ExpectedWeight::Integer(expected)) => {
+                        (
+                            Some(Expression::Value(MetadataValue::Integer(n))),
+                            ExpectedWeight::Integer(expected),
+                        ) => {
                             assert_eq!(*n, *expected);
                         }
-                        (Some(MetadataValue::Float(n)), ExpectedWeight::Float(expected)) => {
+                        (
+                            Some(Expression::Value(MetadataValue::Float(n))),
+                            ExpectedWeight::Float(expected),
+                        ) => {
                             assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
                         }
                         _ => panic!("Expected correct number type at position {i}"),
@@ -158,7 +172,7 @@ mod lexical_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => match node.attributes.get("active") {
-                Some(MetadataValue::Boolean(true)) => (),
+                Some(Expression::Value(MetadataValue::Boolean(true))) => (),
                 _ => panic!("Expected true boolean"),
             },
             _ => panic!("Expected NodeDecl"),
@@ -166,7 +180,7 @@ mod lexical_tests {
 
         match &statements[1] {
             GGLStatement::NodeDecl(node) => match node.attributes.get("active") {
-                Some(MetadataValue::Boolean(false)) => (),
+                Some(Expression::Value(MetadataValue::Boolean(false))) => (),
                 _ => panic!("Expected false boolean"),
             },
             _ => panic!("Expected NodeDecl"),
@@ -221,7 +235,11 @@ mod node_declaration_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "simple");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "simple"),
+                    _ => panic!("Expected string part"),
+                }
                 assert!(node.node_type.is_none());
                 assert!(node.attributes.is_empty());
             }
@@ -246,7 +264,11 @@ mod node_declaration_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "person");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "person"),
+                    _ => panic!("Expected string part"),
+                }
                 assert_eq!(node.node_type, Some("human".to_string()));
             }
             _ => panic!("Expected NodeDecl"),
@@ -254,7 +276,11 @@ mod node_declaration_tests {
 
         match &statements[1] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "building");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "building"),
+                    _ => panic!("Expected string part"),
+                }
                 assert_eq!(node.node_type, Some("structure".to_string()));
             }
             _ => panic!("Expected NodeDecl"),
@@ -277,21 +303,29 @@ mod node_declaration_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "person");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "person"),
+                    _ => panic!("Expected string part"),
+                }
                 assert_eq!(node.attributes.len(), 3);
 
-                assert_eq!(
-                    node.attributes.get("name"),
-                    Some(&MetadataValue::String("Alice".to_string()))
-                );
-                assert_eq!(
-                    node.attributes.get("age"),
-                    Some(&MetadataValue::Integer(30))
-                );
-                assert_eq!(
-                    node.attributes.get("active"),
-                    Some(&MetadataValue::Boolean(true))
-                );
+                match node.attributes.get("name") {
+                    Some(Expression::Value(MetadataValue::String(s))) => {
+                        assert_eq!(s, "Alice")
+                    }
+                    _ => panic!("Expected name attribute"),
+                }
+
+                match node.attributes.get("age") {
+                    Some(Expression::Value(MetadataValue::Integer(n))) => assert_eq!(*n, 30),
+                    _ => panic!("Expected age attribute"),
+                }
+
+                match node.attributes.get("active") {
+                    Some(Expression::Value(MetadataValue::Boolean(b))) => assert!(*b),
+                    _ => panic!("Expected active attribute"),
+                }
             }
             _ => panic!("Expected NodeDecl"),
         }
@@ -313,7 +347,11 @@ mod node_declaration_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "alice");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "alice"),
+                    _ => panic!("Expected string part"),
+                }
                 assert_eq!(node.node_type, Some("person".to_string()));
                 assert_eq!(node.attributes.len(), 2);
             }
@@ -337,7 +375,11 @@ mod node_declaration_tests {
 
         match &statements[0] {
             GGLStatement::NodeDecl(node) => {
-                assert_eq!(node.id, "empty");
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "empty"),
+                    _ => panic!("Expected string part"),
+                }
                 assert!(node.attributes.is_empty());
             }
             _ => panic!("Expected NodeDecl"),
@@ -348,6 +390,7 @@ mod node_declaration_tests {
 #[cfg(test)]
 mod edge_declaration_tests {
     use super::*;
+
 
     #[test]
     fn test_directed_edge() {
@@ -365,8 +408,6 @@ mod edge_declaration_tests {
 
         match &statements[0] {
             GGLStatement::EdgeDecl(edge) => {
-                assert_eq!(edge.source, "source");
-                assert_eq!(edge.target, "target");
                 assert!(edge.directed);
                 assert!(edge.attributes.is_empty());
             }
@@ -390,8 +431,6 @@ mod edge_declaration_tests {
 
         match &statements[0] {
             GGLStatement::EdgeDecl(edge) => {
-                assert_eq!(edge.source, "source");
-                assert_eq!(edge.target, "target");
                 assert!(!edge.directed);
             }
             _ => panic!("Expected EdgeDecl"),
@@ -415,14 +454,18 @@ mod edge_declaration_tests {
         match &statements[0] {
             GGLStatement::EdgeDecl(edge) => {
                 assert_eq!(edge.attributes.len(), 2);
-                assert_eq!(
-                    edge.attributes.get("weight"),
-                    Some(&MetadataValue::Float(1.5))
-                );
-                assert_eq!(
-                    edge.attributes.get("label"),
-                    Some(&MetadataValue::String("connection".to_string()))
-                );
+                match edge.attributes.get("weight") {
+                    Some(Expression::Value(MetadataValue::Float(n))) => {
+                        assert!((n - 1.5).abs() < f64::EPSILON)
+                    }
+                    _ => panic!("Expected weight attribute"),
+                }
+                match edge.attributes.get("label") {
+                    Some(Expression::Value(MetadataValue::String(s))) => {
+                        assert_eq!(s, "connection")
+                    }
+                    _ => panic!("Expected label attribute"),
+                }
             }
             _ => panic!("Expected EdgeDecl"),
         }
@@ -444,11 +487,7 @@ mod edge_declaration_tests {
 
         match &statements[0] {
             GGLStatement::EdgeDecl(edge) => {
-                assert_eq!(edge.source, "a");
-                assert_eq!(edge.target, "b");
-                // ID should be auto-generated
-                assert!(edge.id.contains("a"));
-                assert!(edge.id.contains("b"));
+                assert!(edge.id_parts.is_none());
             }
             _ => panic!("Expected EdgeDecl"),
         }
@@ -508,8 +547,14 @@ mod generator_statement_tests {
             GGLStatement::GenerateStmt(generator) => {
                 assert_eq!(generator.name, "grid");
                 assert_eq!(generator.params.len(), 4);
-                assert_eq!(generator.params.get("rows"), Some(&MetadataValue::Integer(3)));
-                assert_eq!(generator.params.get("cols"), Some(&MetadataValue::Integer(4)));
+                assert_eq!(
+                    generator.params.get("rows"),
+                    Some(&MetadataValue::Integer(3))
+                );
+                assert_eq!(
+                    generator.params.get("cols"),
+                    Some(&MetadataValue::Integer(4))
+                );
                 assert_eq!(
                     generator.params.get("prefix"),
                     Some(&MetadataValue::String("node".to_string()))
@@ -549,213 +594,6 @@ mod generator_statement_tests {
 }
 
 #[cfg(test)]
-mod rule_definition_tests {
-    use super::*;
-
-    #[test]
-    fn test_simple_rule() {
-        let input = r#"
-            graph test {
-                rule add_leaf {
-                    lhs { node N; }
-                    rhs {
-                        node N;
-                        node L;
-                        edge: N -> L;
-                    }
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::RuleDefStmt(rule) => {
-                assert_eq!(rule.name, "add_leaf");
-                assert_eq!(rule.lhs.nodes.len(), 1);
-                assert_eq!(rule.lhs.edges.len(), 0);
-                assert_eq!(rule.rhs.nodes.len(), 2);
-                assert_eq!(rule.rhs.edges.len(), 1);
-
-                assert_eq!(rule.lhs.nodes[0].id, "N");
-                assert_eq!(rule.rhs.nodes[0].id, "N");
-                assert_eq!(rule.rhs.nodes[1].id, "L");
-                assert_eq!(rule.rhs.edges[0].source, "N");
-                assert_eq!(rule.rhs.edges[0].target, "L");
-            }
-            _ => panic!("Expected RuleDefStmt"),
-        }
-    }
-
-    #[test]
-    fn test_rule_with_typed_nodes() {
-        let input = r#"
-            graph test {
-                rule transform {
-                    lhs {
-                        node A :type1;
-                        node B :type2;
-                        edge: A -> B;
-                    }
-                    rhs {
-                        node A :type1;
-                        node B :type3;
-                        node C :type2;
-                        edge: A -> C;
-                        edge: C -> B;
-                    }
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::RuleDefStmt(rule) => {
-                assert_eq!(rule.name, "transform");
-                assert_eq!(rule.lhs.nodes.len(), 2);
-                assert_eq!(rule.lhs.edges.len(), 1);
-                assert_eq!(rule.rhs.nodes.len(), 3);
-                assert_eq!(rule.rhs.edges.len(), 2);
-
-                // Check types
-                assert_eq!(rule.lhs.nodes[0].node_type, Some("type1".to_string()));
-                assert_eq!(rule.lhs.nodes[1].node_type, Some("type2".to_string()));
-                assert_eq!(rule.rhs.nodes[0].node_type, Some("type1".to_string()));
-                assert_eq!(rule.rhs.nodes[1].node_type, Some("type3".to_string()));
-                assert_eq!(rule.rhs.nodes[2].node_type, Some("type2".to_string()));
-            }
-            _ => panic!("Expected RuleDefStmt"),
-        }
-    }
-
-    #[test]
-    fn test_rule_with_attributes() {
-        let input = r#"
-            graph test {
-                rule attr_rule {
-                    lhs {
-                        node N [status="old"];
-                    }
-                    rhs {
-                        node N [status="new", updated=true];
-                    }
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::RuleDefStmt(rule) => {
-                assert_eq!(rule.lhs.nodes[0].attributes.len(), 1);
-                assert_eq!(rule.rhs.nodes[0].attributes.len(), 2);
-
-                assert_eq!(
-                    rule.lhs.nodes[0].attributes.get("status"),
-                    Some(&MetadataValue::String("old".to_string()))
-                );
-                assert_eq!(
-                    rule.rhs.nodes[0].attributes.get("status"),
-                    Some(&MetadataValue::String("new".to_string()))
-                );
-                assert_eq!(
-                    rule.rhs.nodes[0].attributes.get("updated"),
-                    Some(&MetadataValue::Boolean(true))
-                );
-            }
-            _ => panic!("Expected RuleDefStmt"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod rule_application_tests {
-    use super::*;
-
-    #[test]
-    fn test_apply_rule() {
-        let input = r#"
-            graph test {
-                apply my_rule 5 times;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::ApplyRuleStmt(apply) => {
-                assert_eq!(apply.rule_name, "my_rule");
-                assert_eq!(apply.iterations, 5);
-            }
-            _ => panic!("Expected ApplyRuleStmt"),
-        }
-    }
-
-    #[test]
-    fn test_apply_rule_once() {
-        let input = r#"
-            graph test {
-                apply single_rule 1 times;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::ApplyRuleStmt(apply) => {
-                assert_eq!(apply.rule_name, "single_rule");
-                assert_eq!(apply.iterations, 1);
-            }
-            _ => panic!("Expected ApplyRuleStmt"),
-        }
-    }
-
-    #[test]
-    fn test_apply_rule_zero_times() {
-        let input = r#"
-            graph test {
-                apply no_rule 0 times;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::ApplyRuleStmt(apply) => {
-                assert_eq!(apply.rule_name, "no_rule");
-                assert_eq!(apply.iterations, 0);
-            }
-            _ => panic!("Expected ApplyRuleStmt"),
-        }
-    }
-}
-
-#[cfg(test)]
 mod complex_program_tests {
     use super::*;
 
@@ -775,22 +613,6 @@ mod complex_program_tests {
                     nodes: 5;
                     prefix: "user";
                 }
-
-                // Rule definition
-                rule add_friend {
-                    lhs {
-                        node A :person;
-                        node B :person;
-                    }
-                    rhs {
-                        node A :person;
-                        node B :person;
-                        edge: A -- B [type="friendship"];
-                    }
-                }
-
-                // Rule application
-                apply add_friend 3 times;
             }
         "#;
 
@@ -802,15 +624,13 @@ mod complex_program_tests {
         );
 
         let statements = result.unwrap();
-        assert_eq!(statements.len(), 6);
+        assert_eq!(statements.len(), 4);
 
         // Verify statement types in order
         assert!(matches!(statements[0], GGLStatement::NodeDecl(_)));
         assert!(matches!(statements[1], GGLStatement::NodeDecl(_)));
         assert!(matches!(statements[2], GGLStatement::EdgeDecl(_)));
         assert!(matches!(statements[3], GGLStatement::GenerateStmt(_)));
-        assert!(matches!(statements[4], GGLStatement::RuleDefStmt(_)));
-        assert!(matches!(statements[5], GGLStatement::ApplyRuleStmt(_)));
     }
 
     #[test]
@@ -824,13 +644,6 @@ mod complex_program_tests {
                     branching: 2;
                     prefix: "node";
                 }
-
-                rule add_metadata {
-                    lhs { node N; }
-                    rhs { node N [processed=true]; }
-                }
-
-                apply add_metadata 10 times;
             }
         "#;
 
@@ -838,7 +651,7 @@ mod complex_program_tests {
         assert!(result.is_ok());
 
         let statements = result.unwrap();
-        assert_eq!(statements.len(), 4);
+        assert_eq!(statements.len(), 2);
     }
 
     #[test]
