@@ -1,9 +1,10 @@
 [workspace]
 members = [
   "src/lib",
+  "src/chum",
   "src/cli",
   "src/wasm",
-  "src/client",
+  "src/client"
 ]
 resolver = "2"
 

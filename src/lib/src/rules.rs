@@ -1,435 +1,218 @@
-// use crate::parser::{NodeDeclaration, Pattern};
-// use crate::types::{Edge, Graph, Node};
-// use std::collections::{HashMap, HashSet};
+//! Transformation rule engine for graph manipulation.
 
-// #[derive(Debug, Clone)]
-// pub struct Rule {
-//     pub name: String,
-//     pub lhs: Pattern,
-//     pub rhs: Pattern,
-// }
+use crate::parser::{NodeDeclaration, Pattern};
+use crate::types::{Edge, Graph, Node};
+use std::collections::{HashMap, HashSet};
 
-// impl Rule {
-//     pub fn apply(&self, graph: &mut Graph, iterations: usize) -> Result<(), String> {
-//         for _ in 0..iterations {
-//             let matches = self.find_matches(graph)?;
-//             if matches.is_empty() {
-//                 break;
-//             }
+#[derive(Debug, Clone)]
+pub struct Rule {
+    pub name: String,
+    pub lhs: Pattern,
+    pub rhs: Pattern,
+}
 
-//             // For rules that create new elements (nodes or edges) with fixed IDs,
-//             // apply only one match per iteration to avoid ID conflicts.
-//             // For rules that only modify existing elements, apply all matches.
-//             let creates_new_elements = self
-//                 .rhs
-//                 .nodes
-//                 .iter()
-//                 .any(|n| !self.lhs.nodes.iter().any(|ln| ln.id == n.id))
-//                 || self
-//                     .rhs
-//                     .edges
-//                     .iter()
-//                     .any(|e| !self.lhs.edges.iter().any(|le| le.id == e.id));
+#[derive(Debug)]
+struct Match {
+    node_mapping: HashMap<String, String>, // Pattern node ID -> Graph node ID
+}
 
-//             if creates_new_elements {
-//                 // Apply only the first match per iteration to avoid conflicts
-//                 if let Some(m) = matches.into_iter().next() {
-//                     self.apply_transformation(graph, &m)?;
-//                 }
-//             } else {
-//                 // Apply all matches for rules that only modify existing elements
-//                 for m in matches {
-//                     self.apply_transformation(graph, &m)?;
-//                 }
-//             }
-//         }
+impl Rule {
+    /// Applies the rule to the graph for a specified number of iterations.
+    pub fn apply(&self, graph: &mut Graph, iterations: usize) -> Result<(), String> {
+        for _ in 0..iterations {
+            let matches = self.find_matches(graph)?;
+            if matches.is_empty() {
+                break; // No more matches found, stop applying.
+            }
 
-//         Ok(())
-//     }
+            // A simple strategy: apply only the first found match per iteration
+            // to avoid complex interactions between overlapping matches.
+            if let Some(first_match) = matches.into_iter().next() {
+                self.apply_transformation(graph, &first_match)?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
 
-//     fn find_matches(&self, graph: &Graph) -> Result<Vec<Match>, String> {
-//         let mut matches = Vec::new();
-//         let mut visited = HashSet::new();
+    /// Finds all non-overlapping matches of the LHS pattern in the graph.
+    fn find_matches(&self, graph: &Graph) -> Result<Vec<Match>, String> {
+        let mut all_matches = Vec::new();
+        let mut matched_graph_nodes = HashSet::new();
 
-//         // Sort node IDs to ensure deterministic iteration order
-//         let mut node_ids: Vec<_> = graph.nodes.keys().collect();
-//         node_ids.sort();
+        let graph_node_ids: Vec<_> = graph.nodes.keys().cloned().collect();
 
-//         // For each node in the graph, try to match the LHS pattern starting from it
-//         for node_id in node_ids {
-//             if visited.contains(node_id) {
-//                 continue;
-//             }
+        for node_id in &graph_node_ids {
+            if matched_graph_nodes.contains(node_id) {
+                continue; // Skip nodes that are already part of a match
+            }
 
-//             if let Some(m) = self.match_pattern_from_node(graph, node_id, &self.lhs)? {
-//                 // Add all matched nodes to visited set to avoid overlapping matches
-//                 for mapped_node in m.node_mapping.values() {
-//                     visited.insert(mapped_node.clone());
-//                 }
-//                 matches.push(m);
-//             }
-//         }
+            if let Some(m) = self.match_pattern_from_node(graph, node_id, &matched_graph_nodes)? {
+                for matched_id in m.node_mapping.values() {
+                    matched_graph_nodes.insert(matched_id.clone());
+                }
+                all_matches.push(m);
+            }
+        }
+        Ok(all_matches)
+    }
 
-//         Ok(matches)
-//     }
+    /// Tries to match the LHS pattern starting from a specific node.
+    fn match_pattern_from_node(
+        &self,
+        graph: &Graph,
+        start_node_id: &str,
+        globally_matched: &HashSet<String>,
+    ) -> Result<Option<Match>, String> {
+        let mut p_nodes = self.lhs.nodes.clone();
+        if p_nodes.is_empty() {
+            return Ok(None);
+        }
 
-//     fn match_pattern_from_node(
-//         &self,
-//         graph: &Graph,
-//         start_node: &str,
-//         pattern: &Pattern,
-//     ) -> Result<Option<Match>, String> {
-//         let mut node_mapping = HashMap::new();
-//         let mut edge_mapping = HashMap::new();
+        let mut node_mapping = HashMap::new();
+        let mut edge_mapping = HashMap::new(); // This is used locally within the matching logic
 
-//         // Try to match the first node in the pattern to the start node
-//         if pattern.nodes.is_empty() {
-//             return Ok(Some(Match {
-//                 node_mapping,
-//                 edge_mapping,
-//             }));
-//         }
+        // Attempt to match the first pattern node to the start_node_id
+        let p_start_node = p_nodes.remove(0);
+        if !self.node_matches(graph, start_node_id, &p_start_node)? {
+            return Ok(None);
+        }
 
-//         let first_pattern_node = &pattern.nodes[0];
-//         if !self.node_matches(graph, start_node, first_pattern_node)? {
-//             return Ok(None);
-//         }
+        // The ID in the pattern is a placeholder/variable name
+        let p_start_node_id = p_start_node.id.to_string(); // In rules, IDs are identifiers
+        node_mapping.insert(p_start_node_id, start_node_id.to_string());
 
-//         node_mapping.insert(first_pattern_node.id.clone(), start_node.to_string());
+        let mut available_graph_nodes: Vec<_> = graph
+            .nodes
+            .keys()
+            .filter(|id| *id != start_node_id && !globally_matched.contains(*id))
+            .cloned()
+            .collect();
 
-//         // Try to extend the match to the rest of the pattern
-//         if self.extend_match(graph, pattern, &mut node_mapping, &mut edge_mapping)? {
-//             Ok(Some(Match {
-//                 node_mapping,
-//                 edge_mapping,
-//             }))
-//         } else {
-//             Ok(None)
-//         }
-//     }
+        if self.extend_match(graph, &mut p_nodes, &mut available_graph_nodes, &mut node_mapping, &mut edge_mapping)? {
+            Ok(Some(Match { node_mapping }))
+        } else {
+            Ok(None)
+        }
+    }
 
-//     fn extend_match(
-//         &self,
-//         graph: &Graph,
-//         pattern: &Pattern,
-//         node_mapping: &mut HashMap<String, String>,
-//         edge_mapping: &mut HashMap<String, String>,
-//     ) -> Result<bool, String> {
-//         // Match remaining nodes
-//         for pattern_node in pattern.nodes.iter().skip(1) {
-//             let mut found_match = false;
+    /// Recursively extends a partial match. (Simplified to iterative for this version)
+    fn extend_match(
+         &self,
+        graph: &Graph,
+        p_nodes_to_match: &mut Vec<NodeDeclaration>,
+        available_graph_nodes: &mut Vec<String>,
+        node_mapping: &mut HashMap<String, String>,
+        edge_mapping: &mut HashMap<String, String>,
+    ) -> Result<bool, String> {
+        // This is a simplified matching algorithm. A full implementation would use backtracking.
+        // Match remaining nodes
+        for p_node in p_nodes_to_match {
+            let p_node_id = p_node.id.to_string();
+            let found_node_match = available_graph_nodes.iter().position(|graph_node_id| {
+                self.node_matches(graph, graph_node_id, p_node).unwrap_or(false)
+            });
 
-//             // Sort node IDs to ensure deterministic iteration order
-//             let mut available_nodes: Vec<_> = graph
-//                 .nodes
-//                 .keys()
-//                 .filter(|id| !node_mapping.values().any(|v| v == *id))
-//                 .collect();
-//             available_nodes.sort();
+            if let Some(index) = found_node_match {
+                let graph_node_id = available_graph_nodes.remove(index);
+                node_mapping.insert(p_node_id, graph_node_id);
+            } else {
+                return Ok(false); // Could not find a match for a required pattern node
+            }
+        }
 
-//             // Try each unmapped graph node
-//             for graph_node_id in available_nodes {
-//                 if self.node_matches(graph, graph_node_id, pattern_node)? {
-//                     node_mapping.insert(pattern_node.id.clone(), graph_node_id.clone());
-//                     found_match = true;
-//                     break;
-//                 }
-//             }
+        // Match edges
+        for p_edge in &self.lhs.edges {
+            let p_source_id = p_edge.source.to_string();
+            let p_target_id = p_edge.target.to_string();
 
-//             if !found_match {
-//                 return Ok(false);
-//             }
-//         }
+            let g_source_id = node_mapping.get(&p_source_id).ok_or("Invalid LHS pattern")?;
+            let g_target_id = node_mapping.get(&p_target_id).ok_or("Invalid LHS pattern")?;
 
-//         // Match edges - but only if the pattern requires edges
-//         for pattern_edge in &pattern.edges {
-//             let mut found_match = false;
+            let found_edge = graph.edges.iter().find(|(g_edge_id, g_edge)| {
+                !edge_mapping.values().any(|v| v == *g_edge_id) &&
+                g_edge.directed == p_edge.directed &&
+                ((g_edge.source == *g_source_id && g_edge.target == *g_target_id) ||
+                 (!p_edge.directed && g_edge.source == *g_target_id && g_edge.target == *g_source_id))
+            });
 
-//             // Get the mapped source and target nodes
-//             let source = node_mapping
-//                 .get(&pattern_edge.source)
-//                 .ok_or_else(|| "Invalid source node in pattern".to_string())?;
-//             let target = node_mapping
-//                 .get(&pattern_edge.target)
-//                 .ok_or_else(|| "Invalid target node in pattern".to_string())?;
+            if let Some((g_edge_id, _)) = found_edge {
+                edge_mapping.insert(p_edge.id.as_ref().map(|id| id.to_string()).unwrap_or_default(), g_edge_id.clone());
+            } else {
+                return Ok(false); // Could not find a matching edge
+            }
+        }
 
-//             // Look for a matching edge in the graph
-//             for (graph_edge_id, graph_edge) in &graph.edges {
-//                 if edge_mapping.values().any(|v| v == graph_edge_id) {
-//                     continue;
-//                 }
+        Ok(true)
+    }
 
-//                 // Since graph edges don't store directedness, we need to handle matching differently
-//                 // For undirected pattern edges, allow matching in either direction
-//                 // For directed pattern edges, only match in the specified direction
-//                 let matches = if pattern_edge.directed {
-//                     // For directed pattern edges, exact match required
-//                     graph_edge.source == *source && graph_edge.target == *target
-//                 } else {
-//                     // For undirected pattern edges, either direction works
-//                     (graph_edge.source == *source && graph_edge.target == *target)
-//                         || (graph_edge.source == *target && graph_edge.target == *source)
-//                 };
+    /// Checks if a graph node matches a pattern node's criteria (type, attributes).
+    fn node_matches( &self, graph: &Graph, graph_node_id: &str, p_node: &NodeDeclaration) -> Result<bool, String> {
+        let g_node = graph.get_node(graph_node_id).ok_or("Internal error: Node disappeared")?;
 
-//                 if matches {
-//                     edge_mapping.insert(pattern_edge.id.clone(), graph_edge_id.clone());
-//                     found_match = true;
-//                     break;
-//                 }
-//             }
+        // Check type
+        if let Some(p_type_expr) = &p_node.node_type {
+            if g_node.r#type != p_type_expr.to_string() { // Assumes type is a literal string in pattern
+                return Ok(false);
+            }
+        }
+        // Check attributes
+        for (p_key, p_val_expr) in &p_node.attributes {
+            if g_node.metadata.get(p_key).is_some_and(|g_val| g_val == &p_val_expr.to_string().into()) {
+                continue;
+            }
+            return Ok(false);
+        }
+        Ok(true)
+    }
 
-//             if !found_match {
-//                 return Ok(false);
-//             }
-//         }
 
-//         // Special handling for patterns that require specific connectivity constraints
-//         // For single-node patterns with no edges, we need to check if isolation is required
-//         // by looking at the rule context (this is a heuristic based on common rule patterns)
-//         if pattern.edges.is_empty() && pattern.nodes.len() == 1 {
-//             // If the RHS is empty (deletion rule), then we want isolated nodes
-//             if self.rhs.nodes.is_empty() {
-//                 let node_id = node_mapping.values().next().unwrap();
-//                 // Check if this node has any edges in the graph
-//                 for edge in graph.edges.values() {
-//                     if edge.source == *node_id || edge.target == *node_id {
-//                         return Ok(false); // Node is not isolated
-//                     }
-//                 }
-//             }
-//             // For other single-node patterns (like replacement), don't require isolation
-//         }
+    /// Applies the RHS transformation based on a match.
+    fn apply_transformation(&self, graph: &mut Graph, m: &Match) -> Result<(), String> {
+        // --- Deletion Phase ---
+        let lhs_nodes: HashSet<_> = self.lhs.nodes.iter().map(|n| n.id.to_string()).collect();
+        let rhs_nodes: HashSet<_> = self.rhs.nodes.iter().map(|n| n.id.to_string()).collect();
+        let nodes_to_delete = lhs_nodes.difference(&rhs_nodes);
+        for p_node_id in nodes_to_delete {
+            if let Some(g_node_id) = m.node_mapping.get(p_node_id) {
+                graph.remove_node(g_node_id);
+            }
+        }
 
-//         Ok(true)
-//     }
+        // --- Creation/Update Phase ---
+        for p_node in &self.rhs.nodes {
+            let p_node_id = p_node.id.to_string();
+            let mut metadata = HashMap::new();
+            for (key, val_expr) in &p_node.attributes {
+                 // In a full implementation, expressions in RHS would be evaluated.
+                 // For now, we assume they are literals.
+                metadata.insert(key.clone(), val_expr.to_string().into());
+            }
 
-//     fn node_matches(
-//         &self,
-//         graph: &Graph,
-//         graph_node_id: &str,
-//         pattern_node: &NodeDeclaration,
-//     ) -> Result<bool, String> {
-//         let graph_node = graph
-//             .get_node(graph_node_id)
-//             .ok_or_else(|| format!("Node {graph_node_id} not found in graph"))?;
+            if let Some(g_node_id) = m.node_mapping.get(&p_node_id) {
+                // Update existing node
+                if let Some(node) = graph.get_node_mut(g_node_id) {
+                    if let Some(p_type_expr) = &p_node.node_type {
+                        node.r#type = p_type_expr.to_string();
+                    }
+                    node.metadata.extend(metadata);
+                }
+            } else {
+                // Create new node
+                let node_type = p_node.node_type.as_ref().map(|e| e.to_string()).unwrap_or_default();
+                let new_node = Node::new(p_node_id).with_type(node_type).with_metadata_map(metadata);
+                graph.add_node(new_node);
+            }
+        }
 
-//         // Check node type if specified
-//         if let Some(ref node_type) = pattern_node.node_type {
-//             if graph_node.r#type != *node_type {
-//                 return Ok(false);
-//             }
-//         }
+        for p_edge in &self.rhs.edges {
+             let source = m.node_mapping.get(&p_edge.source.to_string()).unwrap_or(&p_edge.source.to_string()).clone();
+             let target = m.node_mapping.get(&p_edge.target.to_string()).unwrap_or(&p_edge.target.to_string()).clone();
+             let id = p_edge.id.as_ref().map(|e| e.to_string()).unwrap_or_else(|| format!("new_edge_{source}_{target}"));
+             graph.add_edge(Edge::new(id, source, target, p_edge.directed));
+        }
 
-//         // Check attributes if specified
-//         for (key, value) in &pattern_node.attributes {
-//             match graph_node.metadata.get(key) {
-//                 Some(graph_value) if graph_value == value => continue,
-//                 _ => return Ok(false),
-//             }
-//         }
-
-//         Ok(true)
-//     }
-
-//     fn apply_transformation(&self, graph: &mut Graph, m: &Match) -> Result<(), String> {
-//         // Handle nodes from RHS pattern
-//         for node in &self.rhs.nodes {
-//             let node_id = if let Some(mapped_id) = m.node_mapping.get(&node.id) {
-//                 // This is a preserved/updated node from LHS
-//                 mapped_id.clone()
-//             } else {
-//                 // This is a new node
-//                 node.id.clone()
-//             };
-
-//             if let Some(mapped_id) = m.node_mapping.get(&node.id) {
-//                 // This node exists in LHS, update it
-//                 let existing_node = graph.get_node(mapped_id).unwrap().clone();
-//                 let mut updated_node = Node::new(mapped_id.clone())
-//                     .with_type(existing_node.r#type.clone())
-//                     .with_metadata_map(existing_node.metadata.clone())
-//                     .with_position(existing_node.x, existing_node.y);
-
-//                 // Update type if specified in RHS
-//                 if let Some(ref node_type) = node.node_type {
-//                     updated_node = updated_node.with_type(node_type.clone());
-//                 }
-
-//                 // Add/update metadata from RHS
-//                 for (key, value) in &node.attributes {
-//                     updated_node = updated_node.with_metadata(key.clone(), value.clone());
-//                 }
-//                 graph.add_node(updated_node); // This will replace the existing node
-//             } else {
-//                 // This is a new node, create it
-//                 let mut new_node = Node::new(node_id.clone());
-//                 if let Some(ref node_type) = node.node_type {
-//                     new_node = new_node.with_type(node_type.clone());
-//                 }
-//                 for (key, value) in &node.attributes {
-//                     new_node = new_node.with_metadata(key.clone(), value.clone());
-//                 }
-//                 graph.add_node(new_node);
-//             }
-//         }
-
-//         // Remove nodes that are in LHS but not in RHS
-//         for (pattern_id, graph_id) in &m.node_mapping {
-//             if !self.rhs.nodes.iter().any(|n| &n.id == pattern_id) {
-//                 graph.remove_node(graph_id);
-//             }
-//         }
-
-//         // Remove edges that are in LHS but not in RHS
-//         for (pattern_id, graph_id) in &m.edge_mapping {
-//             if !self.rhs.edges.iter().any(|e| &e.id == pattern_id) {
-//                 graph.remove_edge(graph_id);
-//             }
-//         }
-
-//         // Create new edges from RHS pattern
-//         for edge in &self.rhs.edges {
-//             let source = if let Some(s) = m.node_mapping.get(&edge.source) {
-//                 s.clone()
-//             } else {
-//                 edge.source.clone()
-//             };
-
-//             let target = if let Some(t) = m.node_mapping.get(&edge.target) {
-//                 t.clone()
-//             } else {
-//                 edge.target.clone()
-//             };
-
-//             // Generate a unique edge ID
-//             let edge_id = if let Some(mapped_id) = m.edge_mapping.get(&edge.id) {
-//                 // This edge exists in LHS, keep its ID
-//                 mapped_id.clone()
-//             } else {
-//                 // This is a new edge, generate a unique ID
-//                 let base_id = if edge.id.is_empty() {
-//                     format!("{source}_{target}")
-//                 } else {
-//                     edge.id.clone()
-//                 };
-
-//                 let mut counter = 0;
-//                 let mut unique_id = base_id.clone();
-//                 while graph.edges.contains_key(&unique_id) {.
-//                     counter += 1;
-//                     unique_id = format!("{base_id}_{counter}");
-//                 }
-//                 unique_id
-//             };
-
-//             let mut new_edge = Edge::new(edge_id, source, target);
-//             for (key, value) in &edge.attributes {
-//                 new_edge = new_edge.with_metadata(key.clone(), value.clone());
-//             }
-//             graph.add_edge(new_edge);
-//         }
-
-//         Ok(())
-//     }
-// }
-
-// #[derive(Debug)]
-// struct Match {
-//     node_mapping: HashMap<String, String>, // Pattern node ID -> Graph node ID
-//     #[allow(dead_code)]
-//     edge_mapping: HashMap<String, String>, // Pattern edge ID -> Graph edge ID
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::parser::{EdgeDeclaration, NodeDeclaration, Pattern};
-//     use crate::types::MetadataValue;
-
-//     #[test]
-//     fn test_simple_rule() {
-//         // Create a rule that replaces a single node with two connected nodes
-//         let rule = Rule {
-//             name: "split".to_string(),
-//             lhs: Pattern {
-//                 nodes: vec![NodeDeclaration {
-//                     id: "A".to_string(),
-//                     node_type: None,
-//                     attributes: HashMap::new(),
-//                 }],
-//                 edges: vec![],
-//             },
-//             rhs: Pattern {
-//                 nodes: vec![
-//                     NodeDeclaration {
-//                         id: "B1".to_string(),
-//                         node_type: None,
-//                         attributes: HashMap::new(),
-//                     },
-//                     NodeDeclaration {
-//                         id: "B2".to_string(),
-//                         node_type: None,
-//                         attributes: HashMap::new(),
-//                     },
-//                 ],
-//                 edges: vec![EdgeDeclaration {
-//                     id: "e".to_string(),
-//                     source: "B1".to_string(),
-//                     target: "B2".to_string(),
-//                     directed: true,
-//                     attributes: HashMap::new(),
-//                 }],
-//             },
-//         };
-
-//         // Create a test graph
-//         let mut graph = Graph::new();
-//         graph.add_node(Node::new("n1".to_string()));
-
-//         // Apply the rule
-//         rule.apply(&mut graph, 1).unwrap();
-
-//         // Check the result
-//         assert_eq!(graph.node_count(), 2);
-//         assert_eq!(graph.edge_count(), 1);
-//     }
-
-//     #[test]
-//     fn test_typed_node_rule() {
-//         // Create a rule that matches nodes by type
-//         let mut type_attrs = HashMap::new();
-//         type_attrs.insert("type".to_string(), MetadataValue::String("A".to_string()));
-
-//         let rule = Rule {
-//             name: "type_match".to_string(),
-//             lhs: Pattern {
-//                 nodes: vec![NodeDeclaration {
-//                     id: "N".to_string(),
-//                     node_type: Some("A".to_string()),
-//                     attributes: HashMap::new(),
-//                 }],
-//                 edges: vec![],
-//             },
-//             rhs: Pattern {
-//                 nodes: vec![NodeDeclaration {
-//                     id: "N".to_string(),
-//                     node_type: Some("B".to_string()),
-//                     attributes: HashMap::new(),
-//                 }],
-//                 edges: vec![],
-//             },
-//         };
-
-//         // Create a test graph
-//         let mut graph = Graph::new();
-//         graph.add_node(Node::new("n1".to_string()).with_type("A".to_string()));
-//         graph.add_node(Node::new("n2".to_string()).with_type("C".to_string()));
-
-//         // Apply the rule
-//         rule.apply(&mut graph, 1).unwrap();
-
-//         // Check that only the type A node was transformed
-//         assert!(graph.get_node("n1").unwrap().r#type == "B");
-//         assert!(graph.get_node("n2").unwrap().r#type == "C");
-//     }
-// }
+        Ok(())
+    }
+}

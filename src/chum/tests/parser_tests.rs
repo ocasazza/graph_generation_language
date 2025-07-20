@@ -1,4 +1,5 @@
-use graph_generation_language::parser::{parse_ggl, Expression, Statement};
+use graph_generation_language::parser::{parse_ggl, GGLStatement, Expression, InterpolatedStringPart};
+use graph_generation_language::types::MetadataValue;
 
 #[cfg(test)]
 mod lexical_tests {
@@ -22,8 +23,8 @@ mod lexical_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 4);
 
         // Verify all are node declarations with correct IDs
         for (i, expected_id) in [
@@ -35,11 +36,12 @@ mod lexical_tests {
         .iter()
         .enumerate()
         {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    match &node.id {
-                        Expression::Identifier(s) => assert_eq!(s, *expected_id),
-                        _ => panic!("Expected identifier"),
+            match &statements[i] {
+                GGLStatement::NodeDecl(node) => {
+                    assert_eq!(node.id_parts.len(), 1);
+                    match &node.id_parts[0] {
+                        InterpolatedStringPart::String(s) => assert_eq!(s, *expected_id),
+                        _ => panic!("Expected string part"),
                     }
                 }
                 _ => panic!("Expected NodeDecl at position {i}"),
@@ -65,8 +67,8 @@ mod lexical_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 4);
 
         let expected_labels = [
             "simple string",
@@ -75,17 +77,13 @@ mod lexical_tests {
             "",
         ];
         for (i, expected_label) in expected_labels.iter().enumerate() {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    // Find the label attribute in the Vec<(String, Expression)>
-                    let label_attr = node.attributes.iter().find(|(key, _)| key == "label");
-                    match label_attr {
-                        Some((_, Expression::StringLiteral(s))) => {
-                            assert_eq!(s, expected_label)
-                        }
-                        _ => panic!("Expected string label at position {i}"),
+            match &statements[i] {
+                GGLStatement::NodeDecl(node) => match node.attributes.get("label") {
+                    Some(Expression::Value(MetadataValue::String(s))) => {
+                        assert_eq!(s, expected_label)
                     }
-                }
+                    _ => panic!("Expected string label at position {i}"),
+                },
                 _ => panic!("Expected NodeDecl at position {i}"),
             }
         }
@@ -111,8 +109,8 @@ mod lexical_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 6);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 6);
 
         #[derive(Debug)]
         enum ExpectedWeight {
@@ -130,18 +128,17 @@ mod lexical_tests {
         ];
 
         for (i, expected_weight) in expected_weights.iter().enumerate() {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    let weight_attr = node.attributes.iter().find(|(key, _)| key == "weight");
-                    match (weight_attr, expected_weight) {
+            match &statements[i] {
+                GGLStatement::NodeDecl(node) => {
+                    match (node.attributes.get("weight"), expected_weight) {
                         (
-                            Some((_, Expression::Integer(n))),
+                            Some(Expression::Value(MetadataValue::Integer(n))),
                             ExpectedWeight::Integer(expected),
                         ) => {
                             assert_eq!(*n, *expected);
                         }
                         (
-                            Some((_, Expression::Float(n))),
+                            Some(Expression::Value(MetadataValue::Float(n))),
                             ExpectedWeight::Float(expected),
                         ) => {
                             assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
@@ -170,27 +167,21 @@ mod lexical_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 2);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, Expression::Boolean(true))) => (),
-                    _ => panic!("Expected true boolean"),
-                }
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => match node.attributes.get("active") {
+                Some(Expression::Value(MetadataValue::Boolean(true))) => (),
+                _ => panic!("Expected true boolean"),
             },
             _ => panic!("Expected NodeDecl"),
         }
 
-        match &ast.statements[1] {
-            Statement::Node(node) => {
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, Expression::Boolean(false))) => (),
-                    _ => panic!("Expected false boolean"),
-                }
+        match &statements[1] {
+            GGLStatement::NodeDecl(node) => match node.attributes.get("active") {
+                Some(Expression::Value(MetadataValue::Boolean(false))) => (),
+                _ => panic!("Expected false boolean"),
             },
             _ => panic!("Expected NodeDecl"),
         }
@@ -219,8 +210,8 @@ mod lexical_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 3);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 3);
     }
 }
 
@@ -239,14 +230,15 @@ mod node_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "simple"),
-                    _ => panic!("Expected identifier"),
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "simple"),
+                    _ => panic!("Expected string part"),
                 }
                 assert!(node.node_type.is_none());
                 assert!(node.attributes.is_empty());
@@ -267,33 +259,29 @@ mod node_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 2);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "person"),
-                    _ => panic!("Expected identifier"),
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "person"),
+                    _ => panic!("Expected string part"),
                 }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "human"),
-                    _ => panic!("Expected node type"),
-                }
+                assert_eq!(node.node_type, Some("human".to_string()));
             }
             _ => panic!("Expected NodeDecl"),
         }
 
-        match &ast.statements[1] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "building"),
-                    _ => panic!("Expected identifier"),
+        match &statements[1] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "building"),
+                    _ => panic!("Expected string part"),
                 }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "structure"),
-                    _ => panic!("Expected node type"),
-                }
+                assert_eq!(node.node_type, Some("structure".to_string()));
             }
             _ => panic!("Expected NodeDecl"),
         }
@@ -310,34 +298,32 @@ mod node_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "person"),
-                    _ => panic!("Expected identifier"),
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "person"),
+                    _ => panic!("Expected string part"),
                 }
                 assert_eq!(node.attributes.len(), 3);
 
-                let name_attr = node.attributes.iter().find(|(key, _)| key == "name");
-                match name_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                match node.attributes.get("name") {
+                    Some(Expression::Value(MetadataValue::String(s))) => {
                         assert_eq!(s, "Alice")
                     }
                     _ => panic!("Expected name attribute"),
                 }
 
-                let age_attr = node.attributes.iter().find(|(key, _)| key == "age");
-                match age_attr {
-                    Some((_, Expression::Integer(n))) => assert_eq!(*n, 30),
+                match node.attributes.get("age") {
+                    Some(Expression::Value(MetadataValue::Integer(n))) => assert_eq!(*n, 30),
                     _ => panic!("Expected age attribute"),
                 }
 
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, Expression::Boolean(b))) => assert!(*b),
+                match node.attributes.get("active") {
+                    Some(Expression::Value(MetadataValue::Boolean(b))) => assert!(*b),
                     _ => panic!("Expected active attribute"),
                 }
             }
@@ -356,19 +342,17 @@ mod node_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "alice"),
-                    _ => panic!("Expected identifier"),
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "alice"),
+                    _ => panic!("Expected string part"),
                 }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "person"),
-                    _ => panic!("Expected node type"),
-                }
+                assert_eq!(node.node_type, Some("person".to_string()));
                 assert_eq!(node.attributes.len(), 2);
             }
             _ => panic!("Expected NodeDecl"),
@@ -386,14 +370,15 @@ mod node_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "empty"),
-                    _ => panic!("Expected identifier"),
+        match &statements[0] {
+            GGLStatement::NodeDecl(node) => {
+                assert_eq!(node.id_parts.len(), 1);
+                match &node.id_parts[0] {
+                    InterpolatedStringPart::String(s) => assert_eq!(s, "empty"),
+                    _ => panic!("Expected string part"),
                 }
                 assert!(node.attributes.is_empty());
             }
@@ -406,6 +391,7 @@ mod node_declaration_tests {
 mod edge_declaration_tests {
     use super::*;
 
+
     #[test]
     fn test_directed_edge() {
         let input = r#"
@@ -417,11 +403,11 @@ mod edge_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
+        match &statements[0] {
+            GGLStatement::EdgeDecl(edge) => {
                 assert!(edge.directed);
                 assert!(edge.attributes.is_empty());
             }
@@ -440,11 +426,11 @@ mod edge_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
+        match &statements[0] {
+            GGLStatement::EdgeDecl(edge) => {
                 assert!(!edge.directed);
             }
             _ => panic!("Expected EdgeDecl"),
@@ -462,22 +448,20 @@ mod edge_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
+        match &statements[0] {
+            GGLStatement::EdgeDecl(edge) => {
                 assert_eq!(edge.attributes.len(), 2);
-                let weight_attr = edge.attributes.iter().find(|(key, _)| key == "weight");
-                match weight_attr {
-                    Some((_, Expression::Float(n))) => {
+                match edge.attributes.get("weight") {
+                    Some(Expression::Value(MetadataValue::Float(n))) => {
                         assert!((n - 1.5).abs() < f64::EPSILON)
                     }
                     _ => panic!("Expected weight attribute"),
                 }
-                let label_attr = edge.attributes.iter().find(|(key, _)| key == "label");
-                match label_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                match edge.attributes.get("label") {
+                    Some(Expression::Value(MetadataValue::String(s))) => {
                         assert_eq!(s, "connection")
                     }
                     _ => panic!("Expected label attribute"),
@@ -498,12 +482,12 @@ mod edge_declaration_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
-                assert!(edge.id.is_none());
+        match &statements[0] {
+            GGLStatement::EdgeDecl(edge) => {
+                assert!(edge.id_parts.is_none());
             }
             _ => panic!("Expected EdgeDecl"),
         }
@@ -527,18 +511,14 @@ mod generator_statement_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Generate(gen) => {
+        match &statements[0] {
+            GGLStatement::GenerateStmt(gen) => {
                 assert_eq!(gen.name, "complete");
                 assert_eq!(gen.params.len(), 1);
-                let nodes_param = gen.params.iter().find(|(key, _)| key == "nodes");
-                match nodes_param {
-                    Some((_, Expression::Integer(5))) => (),
-                    _ => panic!("Expected nodes parameter"),
-                }
+                assert_eq!(gen.params.get("nodes"), Some(&MetadataValue::Integer(5)));
             }
             _ => panic!("Expected GenerateStmt"),
         }
@@ -560,37 +540,29 @@ mod generator_statement_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Generate(generator) => {
+        match &statements[0] {
+            GGLStatement::GenerateStmt(generator) => {
                 assert_eq!(generator.name, "grid");
                 assert_eq!(generator.params.len(), 4);
-
-                let rows_param = generator.params.iter().find(|(key, _)| key == "rows");
-                match rows_param {
-                    Some((_, Expression::Integer(3))) => (),
-                    _ => panic!("Expected rows parameter"),
-                }
-
-                let cols_param = generator.params.iter().find(|(key, _)| key == "cols");
-                match cols_param {
-                    Some((_, Expression::Integer(4))) => (),
-                    _ => panic!("Expected cols parameter"),
-                }
-
-                let prefix_param = generator.params.iter().find(|(key, _)| key == "prefix");
-                match prefix_param {
-                    Some((_, Expression::StringLiteral(s))) => assert_eq!(s, "node"),
-                    _ => panic!("Expected prefix parameter"),
-                }
-
-                let periodic_param = generator.params.iter().find(|(key, _)| key == "periodic");
-                match periodic_param {
-                    Some((_, Expression::Boolean(true))) => (),
-                    _ => panic!("Expected periodic parameter"),
-                }
+                assert_eq!(
+                    generator.params.get("rows"),
+                    Some(&MetadataValue::Integer(3))
+                );
+                assert_eq!(
+                    generator.params.get("cols"),
+                    Some(&MetadataValue::Integer(4))
+                );
+                assert_eq!(
+                    generator.params.get("prefix"),
+                    Some(&MetadataValue::String("node".to_string()))
+                );
+                assert_eq!(
+                    generator.params.get("periodic"),
+                    Some(&MetadataValue::Boolean(true))
+                );
             }
             _ => panic!("Expected GenerateStmt"),
         }
@@ -608,11 +580,11 @@ mod generator_statement_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
 
-        match &ast.statements[0] {
-            Statement::Generate(gen) => {
+        match &statements[0] {
+            GGLStatement::GenerateStmt(gen) => {
                 assert_eq!(gen.name, "empty");
                 assert!(gen.params.is_empty());
             }
@@ -651,14 +623,14 @@ mod complex_program_tests {
             result.err()
         );
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 4);
 
         // Verify statement types in order
-        assert!(matches!(ast.statements[0], Statement::Node(_)));
-        assert!(matches!(ast.statements[1], Statement::Node(_)));
-        assert!(matches!(ast.statements[2], Statement::Edge(_)));
-        assert!(matches!(ast.statements[3], Statement::Generate(_)));
+        assert!(matches!(statements[0], GGLStatement::NodeDecl(_)));
+        assert!(matches!(statements[1], GGLStatement::NodeDecl(_)));
+        assert!(matches!(statements[2], GGLStatement::EdgeDecl(_)));
+        assert!(matches!(statements[3], GGLStatement::GenerateStmt(_)));
     }
 
     #[test]
@@ -678,8 +650,8 @@ mod complex_program_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 2);
     }
 
     #[test]
@@ -692,8 +664,8 @@ mod complex_program_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 0);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 0);
     }
 
     #[test]
@@ -707,8 +679,8 @@ mod complex_program_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
     }
 
     #[test]
@@ -722,8 +694,8 @@ mod complex_program_tests {
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        let statements = result.unwrap();
+        assert_eq!(statements.len(), 1);
     }
 }
 

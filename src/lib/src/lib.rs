@@ -1,50 +1,54 @@
 //! # Graph Generation Language (GGL)
 //!
-//! GGL is a domain-specific language for creating and manipulating graphs through declarative syntax.
+//! GGL is a domain-specific language for creating and manipulating graphs through a powerful, declarative syntax.
+//! It supports dynamic graph construction using variables and loops.
 //!
 //! ## Overview
 //!
 //! GGL allows you to:
 //!
-//! * Define graph structures using intuitive node and edge declarations
-//! * Generate common graph topologies with built-in generators
-//! * Apply transformation rules to modify graph structure
-//! * Export graphs in standard JSON format
+//! * Define graph structures using intuitive node and edge declarations.
+//! * Use variables and loops to generate complex or repetitive patterns programmatically.
+//! * Create common graph topologies with built-in generators.
+//! * Apply transformation rules to modify graph structure.
+//! * Export graphs in standard JSON format for visualization or further processing.
 //!
 //! ## Quick Example
 //!
 //! ```ggl
-//! graph social_network {
-//!     // Define nodes with types and attributes
-//!     node alice :person [name="Alice", age=30];
-//!     node bob :person [name="Bob", age=25];
+//! graph dynamic_network {
+//!     // Declare variables
+//!     let prefix: string = "user_";
+//!     let count: int = 5;
 //!
-//!     // Create relationships
-//!     edge friendship: alice -- bob [strength=0.8];
+//!     // Create nodes in a loop
+//!     for i in 0..count {
+//!         node "{prefix}{i}" :person [id_num=i, status="active"];
+//!     }
 //!
-//!     // Generate additional structure
-//!     generate complete {
+//!     // Create a chain of relationships
+//!     for i in 0..(count - 1) {
+//!         edge: "{prefix}{i}" -> "{prefix}{i+1}" [weight=0.5];
+//!     }
+//!
+//!     // Generate a star graph and connect it
+//!     generate star {
 //!         nodes: 5;
-//!         prefix: "user";
+//!         prefix: "service";
 //!     }
 //!
-//!     // Apply transformation rules
-//!     rule add_metadata {
-//!         lhs { node N :person; }
-//!         rhs { node N :person [active=true]; }
-//!     }
-//!
-//!     apply add_metadata 10 times;
+//!     edge: "user_0" -- "service0";
 //! }
 //! ```
 //!
 //! ## Features
 //!
-//! * **Declarative Syntax**: Define graphs using intuitive node and edge declarations
-//! * **Built-in Generators**: Create common graph structures (complete, path, cycle, grid, star, tree, scale-free)
-//! * **Transformation Rules**: Apply pattern-based rules to modify graph structure
-//! * **Rich Attributes**: Support for typed nodes and edges with metadata
-//! * **JSON Output**: Export graphs in standard JSON format
+//! * **Dynamic Syntax**: Supports variables and for-loops for programmatic graph construction.
+//! * **Declarative core**: Intuitive node and edge declarations remain at the core.
+//! * **Built-in Generators**: Create common graph structures (complete, path, cycle, grid, star, tree, scale-free).
+//! * **Transformation Rules**: Apply pattern-based rules to modify graph structure.
+//! * **Rich Attributes**: Support for typed nodes and edges with metadata.
+//! * **JSON Output**: Export graphs in standard JSON format.
 //!
 //! ## Getting Started
 //!
@@ -56,65 +60,34 @@
 //!
 //! Building from source:
 //! ```bash
-//! git clone https://github.com/ocasazza/graph-generation-language.git
+//! git clone [https://github.com/ocasazza/graph-generation-language.git](https://github.com/ocasazza/graph-generation-language.git)
 //! cd graph-generation-language
 //! cargo build --release
 //! ```
-//!
-//! ### Your First Graph
-//!
-//! Create a simple graph:
-//! ```ggl
-//! graph hello_world {
-//!     node alice;
-//!     node bob;
-//!     edge friendship: alice -- bob;
-//! }
-//! ```
-//!
-//! ## Modules
-//!
-//! * [`types`] - Core data structures for nodes, edges, and graphs
-//! * [`parser`] - GGL language parser and AST definitions
-//! * [`generators`] - Built-in graph generators for common topologies
-//! * [`rules`] - Transformation rule engine for graph manipulation
 
+use std::collections::HashMap;
 
 pub mod generators;
-pub mod interpreter;
 pub mod parser;
 pub mod rules;
 pub mod types;
 
-use crate::interpreter::Interpreter;
+use crate::generators::get_generator;
+use crate::parser::{
+    ApplyStatement, EdgeDeclaration, Expression, ForStatement, GenerateStatement, LetStatement,
+    NodeDeclaration, RuleDefinition, Statement,
+};
 use crate::parser::parse_ggl;
-use crate::types::Graph;
+use crate::types::{Edge, Graph, MetadataValue, Node};
 
 /// The main GGL engine for parsing and executing GGL programs.
 ///
-/// `GGLEngine` maintains the state of a graph and associated transformation rules,
-/// allowing you to build complex graph structures through GGL programs.
-///
-/// # Examples
-///
-/// ```rust
-/// use graph_generation_language::GGLEngine;
-///
-/// let mut engine = GGLEngine::new();
-/// let ggl_code = r#"
-///     graph example {
-///         node alice :person;
-///         node bob :person;
-///         edge: alice -- bob;
-///     }
-/// "#;
-///
-/// let result = engine.generate_from_ggl(ggl_code).unwrap();
-/// println!("Generated graph: {}", result);
-/// ```
+/// `GGLEngine` maintains the state of a graph, transformation rules, and an execution context for variables.
+/// It interprets GGL code to build complex graph structures.
 pub struct GGLEngine {
     graph: Graph,
-    // rules: HashMap<String, rules::Rule>,
+    rules: HashMap<String, rules::Rule>,
+    context: HashMap<String, MetadataValue>,
 }
 
 impl Default for GGLEngine {
@@ -124,81 +97,179 @@ impl Default for GGLEngine {
 }
 
 impl GGLEngine {
-    /// Creates a new GGL engine with an empty graph and no rules.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use graph_generation_language::GGLEngine;
-    ///
-    /// let engine = GGLEngine::new();
-    /// ```
+    /// Creates a new GGL engine.
     pub fn new() -> Self {
         GGLEngine {
             graph: Graph::new(),
-            // rules: HashMap::new(),
+            rules: HashMap::new(),
+            context: HashMap::new(),
         }
     }
 
     /// Parses and executes a GGL program, returning the resulting graph as JSON.
-    ///
-    /// # Arguments
-    ///
-    /// * `ggl_code` - A string containing the GGL program to execute
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Result` containing either:
-    /// - `Ok(String)` - JSON representation of the generated graph
-    /// - `Err(String)` - Error message
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use graph_generation_language::GGLEngine;
-    ///
-    /// let mut engine = GGLEngine::new();
-    /// let ggl_code = r#"
-    ///     graph simple {
-    ///         node a;
-    ///         node b;
-    ///         edge: a -- b;
-    ///     }
-    /// "#;
-    ///
-    /// match engine.generate_from_ggl(ggl_code) {
-    ///     Ok(json) => println!("Generated graph: {}", json),
-    ///     Err(e) => eprintln!("Error: {}", e),
-    /// }
-    /// ```
     pub fn generate_from_ggl(&mut self, ggl_code: &str) -> Result<String, String> {
-        // Parse GGL code
-        let statements = parse_ggl(ggl_code).map_err(|e| format!("Parse error: {e}"))?;
+        let ast = parse_ggl(ggl_code).map_err(|e| format!("Parse error: {e}"))?;
 
-        // Create a new interpreter and run the statements
-        let mut interpreter = Interpreter::new();
-        let graph = interpreter.run(&statements)?;
+        // Reset state for a new run
+        self.graph = Graph::new();
+        self.rules.clear();
+        self.context.clear();
 
-        // Update the engine's state
-        self.graph = graph;
-        // self.rules = interpreter.get_rules();
+        self.execute_statements(&ast.statements)?;
 
         // Serialize final graph to JSON
-        serde_json::to_string(&self.graph).map_err(|e| format!("Serialization error: {e}"))
+        serde_json::to_string_pretty(&self.graph).map_err(|e| format!("Serialization error: {e}"))
     }
 
-    /// Returns a reference to the current graph.
-    pub fn graph(&self) -> &Graph {
-        &self.graph
+    /// Executes a sequence of GGL statements within the current context.
+    fn execute_statements(&mut self, statements: &[Statement]) -> Result<(), String> {
+        for stmt in statements {
+            self.execute_statement(stmt)?;
+        }
+        Ok(())
     }
 
-    /// Returns a mutable reference to the current graph.
-    pub fn graph_mut(&mut self) -> &mut Graph {
-        &mut self.graph
+    /// Executes a single GGL statement.
+    fn execute_statement(&mut self, statement: &Statement) -> Result<(), String> {
+        match statement {
+            Statement::Let(stmt) => self.handle_let(stmt),
+            Statement::For(stmt) => self.handle_for(stmt),
+            Statement::Node(stmt) => self.handle_node(stmt),
+            Statement::Edge(stmt) => self.handle_edge(stmt),
+            Statement::Generate(stmt) => self.handle_generate(stmt),
+            Statement::RuleDef(stmt) => self.handle_rule_def(stmt),
+            Statement::Apply(stmt) => self.handle_apply(stmt),
+        }
     }
 
-    // /// Returns a reference to the current rules.
-    // pub fn rules(&self) -> &HashMap<String, rules::Rule> {
-    //     &self.rules
-    // }
+    // --- Statement Handlers ---
+
+    fn handle_let(&mut self, stmt: &LetStatement) -> Result<(), String> {
+        let value = self.evaluate_expression(&stmt.value)?;
+        self.context.insert(stmt.name.clone(), value);
+        Ok(())
+    }
+
+    fn handle_for(&mut self, stmt: &ForStatement) -> Result<(), String> {
+        let start = self.evaluate_expression(&stmt.start)?.as_int()? as isize;
+        let end = self.evaluate_expression(&stmt.end)?.as_int()? as isize;
+
+        for i in start..end {
+            self.context
+                .insert(stmt.variable.clone(), MetadataValue::Integer(i as i64));
+            self.execute_statements(&stmt.body)?;
+        }
+        // Remove loop variable from context after loop finishes
+        self.context.remove(&stmt.variable);
+        Ok(())
+    }
+
+    fn handle_node(&mut self, stmt: &NodeDeclaration) -> Result<(), String> {
+        let id = self.evaluate_expression(&stmt.id)?.to_string();
+        let node_type = match &stmt.node_type {
+            Some(expr) => self.evaluate_expression(expr)?.to_string(),
+            None => String::new(),
+        };
+        let mut metadata = HashMap::new();
+        for (key, expr) in &stmt.attributes {
+            metadata.insert(key.clone(), self.evaluate_expression(expr)?);
+        }
+
+        self.graph
+            .add_node(Node::new(id).with_type(node_type).with_metadata_map(metadata));
+        Ok(())
+    }
+
+    fn handle_edge(&mut self, stmt: &EdgeDeclaration) -> Result<(), String> {
+        let id = match &stmt.id {
+            Some(expr) => self.evaluate_expression(expr)?.to_string(),
+            None => format!(
+                "edge_{}",
+                self.graph.edge_count() + self.graph.node_count()
+            ), // Simple unique ID
+        };
+        let source = self.evaluate_expression(&stmt.source)?.to_string();
+        let target = self.evaluate_expression(&stmt.target)?.to_string();
+        let mut metadata = HashMap::new();
+        for (key, expr) in &stmt.attributes {
+            metadata.insert(key.clone(), self.evaluate_expression(expr)?);
+        }
+
+        self.graph.add_edge(
+            Edge::new(id, source, target, stmt.directed).with_metadata_map(metadata),
+        );
+        Ok(())
+    }
+
+    fn handle_generate(&mut self, stmt: &GenerateStatement) -> Result<(), String> {
+        let generator_name = &stmt.name;
+        if let Some(generator) = get_generator(generator_name) {
+            let mut params = HashMap::new();
+            for (key, expr) in &stmt.params {
+                params.insert(key.clone(), self.evaluate_expression(expr)?);
+            }
+            let generated_graph =
+                generator(&params).map_err(|e| format!("Generator '{generator_name}' error: {e}"))?;
+
+            // Merge generated graph into the current graph
+            for (_, node) in generated_graph.nodes {
+                self.graph.add_node(node);
+            }
+            for (_, edge) in generated_graph.edges {
+                self.graph.add_edge(edge);
+            }
+        } else {
+            return Err(format!("Unknown generator: {generator_name}"));
+        }
+        Ok(())
+    }
+
+    fn handle_rule_def(&mut self, stmt: &RuleDefinition) -> Result<(), String> {
+        let rule = rules::Rule {
+            name: stmt.name.clone(),
+            lhs: stmt.lhs.clone(),
+            rhs: stmt.rhs.clone(),
+        };
+        self.rules.insert(stmt.name.clone(), rule);
+        Ok(())
+    }
+
+    fn handle_apply(&mut self, stmt: &ApplyStatement) -> Result<(), String> {
+        let iterations = self.evaluate_expression(&stmt.iterations)?.as_int()? as usize;
+        if let Some(rule) = self.rules.get(&stmt.rule_name) {
+            rule.apply(&mut self.graph, iterations)
+                .map_err(|e| format!("Rule '{}' application error: {e}", stmt.rule_name))?;
+        } else {
+            return Err(format!("Unknown rule: {}", stmt.rule_name));
+        }
+        Ok(())
+    }
+
+    /// Evaluates an expression by resolving variables or interpreting literals.
+    fn evaluate_expression(&self, expr: &Expression) -> Result<MetadataValue, String> {
+        match expr {
+            Expression::StringLiteral(s) => Ok(MetadataValue::String(s.clone())),
+            Expression::Integer(i) => Ok(MetadataValue::Integer(*i)),
+            Expression::Float(f) => Ok(MetadataValue::Float(*f)),
+            Expression::Boolean(b) => Ok(MetadataValue::Boolean(*b)),
+            Expression::Identifier(name) => self
+                .context
+                .get(name)
+                .cloned()
+                .ok_or_else(|| format!("Undefined variable: '{name}'")),
+            Expression::FormattedString(parts) => {
+                let mut result = String::new();
+                for part in parts {
+                    match part {
+                        parser::StringPart::Literal(s) => result.push_str(s),
+                        parser::StringPart::Variable(var) => {
+                            let value = self.context.get(var).ok_or(format!("Undefined variable: '{var}'"))?;
+                            result.push_str(&value.to_string());
+                        }
+                    }
+                }
+                Ok(MetadataValue::String(result))
+            }
+        }
+    }
 }

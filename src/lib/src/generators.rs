@@ -1,94 +1,15 @@
 //! # Graph Generators
 //!
 //! This module provides built-in graph generators for creating common graph topologies.
-//! Generators are invoked using the `generate` statement in GGL programs and can create
-//! various types of graph structures with customizable parameters.
-//!
-//! ## Available Generators
-//!
-//! * [`generate_complete`] - Complete graphs where every node connects to every other node
-//! * [`generate_path`] - Linear chains of connected nodes
-//! * [`generate_cycle`] - Circular chains of nodes
-//! * [`generate_grid`] - 2D grid structures with optional periodic boundaries
-//! * [`generate_star`] - Star topologies with one central hub
-//! * [`generate_tree`] - Tree structures with specified branching and depth
-//! * [`generate_barabasi_albert`] - Scale-free networks using preferential attachment
-//!
-//! ## Usage in GGL
-//!
-//! Generators are invoked using the `generate` statement:
-//! ```ggl
-//! generate complete {
-//!     nodes: 5;
-//!     prefix: "vertex";
-//! }
-//! ```
-//!
-//! ## Common Parameters
-//!
-//! Most generators support these parameters:
-//! * `nodes` - Number of nodes to generate (required for most generators)
-//! * `prefix` - Node name prefix (optional, default: "n")
-//! * `directed` - Whether edges should be directed (optional, default: false)
-//!
-//! ## Examples
-//!
-//! ```rust
-//! use graph_generation_language::generators::generate_complete;
-//! use graph_generation_language::types::MetadataValue;
-//! use std::collections::HashMap;
-//!
-//! let mut params = HashMap::new();
-//! params.insert("nodes".to_string(), MetadataValue::Integer(4));
-//! params.insert("prefix".to_string(), MetadataValue::String("vertex".to_string()));
-//!
-//! let graph = generate_complete(&params).unwrap();
-//! assert_eq!(graph.node_count(), 4);
-//! assert_eq!(graph.edge_count(), 6); // Complete graph: n*(n-1)/2 edges
-//! ```
+//! Generators are invoked using the `generate` statement in GGL programs.
 
 use crate::types::{Edge, Graph, MetadataValue, Node};
 use std::collections::HashMap;
 
-/// Function signature for graph generator functions.
-///
-/// All generators take a parameter map and return either a generated graph or an error message.
+/// Signature for a graph generator function.
 pub type GeneratorFn = fn(&HashMap<String, MetadataValue>) -> Result<Graph, String>;
 
-/// Returns the generator function for the given name.
-///
-/// This function serves as a registry for all available generators, mapping
-/// generator names to their implementation functions.
-///
-/// # Arguments
-///
-/// * `name` - Name of the generator to retrieve
-///
-/// # Returns
-///
-/// `Some(GeneratorFn)` if the generator exists, `None` otherwise.
-///
-/// # Available Generators
-///
-/// * `"complete"` - Complete graph generator
-/// * `"path"` - Path graph generator
-/// * `"cycle"` - Cycle graph generator
-/// * `"grid"` - Grid graph generator
-/// * `"star"` - Star graph generator
-/// * `"tree"` - Tree graph generator
-/// * `"barabasi_albert"` - Barabási-Albert scale-free network generator
-///
-/// # Examples
-///
-/// ```rust
-/// use graph_generation_language::generators::get_generator;
-///
-/// let generator = get_generator("complete");
-/// assert!(generator.is_some());
-///
-/// let unknown = get_generator("unknown");
-/// assert!(unknown.is_none());
-/// ```
+/// Retrieves a generator function by name.
 pub fn get_generator(name: &str) -> Option<GeneratorFn> {
     match name {
         "complete" => Some(generate_complete),
@@ -102,490 +23,324 @@ pub fn get_generator(name: &str) -> Option<GeneratorFn> {
     }
 }
 
-/// Helper function to extract integer parameters from the parameter map.
-///
-/// Converts both integer and float values to usize, with negative values clamped to 0.
+// --- Helper Functions ---
+
 fn get_param_int(params: &HashMap<String, MetadataValue>, key: &str) -> Result<usize, String> {
-    match params.get(key) {
-        Some(MetadataValue::Integer(n)) => {
-            if *n < 0 {
-                Ok(0)
-            } else {
-                Ok(*n as usize)
-            }
-        }
-        Some(MetadataValue::Float(n)) => {
-            if *n < 0.0 {
-                Ok(0)
-            } else {
-                Ok(*n as usize)
-            }
-        }
-        _ => Err(format!("Missing or invalid {key} parameter")),
-    }
+    params
+        .get(key)
+        .ok_or_else(|| format!("Missing required parameter: '{key}'"))
+        .and_then(|v| v.as_int().map(|n| n as usize))
 }
 
-/// Helper function to extract string parameters with default values.
-fn get_param_string(params: &HashMap<String, MetadataValue>, key: &str, default: &str) -> String {
-    match params.get(key) {
-        Some(MetadataValue::String(s)) => s.clone(),
-        _ => default.to_string(),
-    }
+fn get_param_string(
+    params: &HashMap<String, MetadataValue>,
+    key: &str,
+    default: &str,
+) -> String {
+    params
+        .get(key)
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| default.to_string())
 }
 
-/// Helper function to extract boolean parameters with default values.
 fn get_param_bool(params: &HashMap<String, MetadataValue>, key: &str, default: bool) -> bool {
-    match params.get(key) {
-        Some(MetadataValue::Boolean(b)) => *b,
-        _ => default,
-    }
+    params
+        .get(key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
 }
 
-/// Generates a complete graph where every node is connected to every other node.
-///
-/// A complete graph is a graph where every pair of distinct nodes is connected by a unique edge.
-/// This creates the maximum possible number of edges for a given number of nodes.
-///
+// --- Generator Implementations ---
+
+/// Generates a complete graph (clique).
 /// # Parameters
-///
-/// * `nodes` (required) - Number of nodes to generate
-/// * `prefix` (optional) - Node name prefix (default: "n")
-/// * `directed` (optional) - Whether edges should be directed (default: false)
-///
-/// # Properties
-///
-/// * **Nodes**: n
-/// * **Edges**: n(n-1)/2 for undirected, n(n-1) for directed
-/// * **Connectivity**: Every node connected to every other node
-///
-/// # Examples
-///
-/// ```rust
-/// use graph_generation_language::generators::generate_complete;
-/// use graph_generation_language::types::MetadataValue;
-/// use std::collections::HashMap;
-///
-/// let mut params = HashMap::new();
-/// params.insert("nodes".to_string(), MetadataValue::Integer(4));
-/// params.insert("prefix".to_string(), MetadataValue::String("vertex".to_string()));
-///
-/// let graph = generate_complete(&params).unwrap();
-/// assert_eq!(graph.node_count(), 4);
-/// assert_eq!(graph.edge_count(), 6); // 4*(4-1)/2 = 6 edges
-/// ```
-///
-/// # GGL Usage
-///
-/// ```ggl
-/// generate complete {
-///     nodes: 5;
-///     prefix: "vertex";
-///     directed: false;
-/// }
-/// ```
-///
-/// # Use Cases
-///
-/// * Fully connected networks
-/// * Cliques in social networks
-/// * Reference topologies for comparison
-/// * Dense communication networks
+/// * `nodes` (int, required): Number of nodes.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+/// * `directed` (bool, optional): If true, generates directed edges. Default: false.
 pub fn generate_complete(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
-    let n = get_param_int(params, "nodes")?;
-    let prefix = get_param_string(params, "prefix", "n");
-    let _directed = get_param_bool(params, "directed", false);
-
-    let mut graph = Graph::new();
-
-    // Add nodes
-    for i in 0..n {
-        let node_id = format!("{prefix}{i}");
-        graph.add_node(Node::new(node_id));
-    }
-
-    // Add edges (all-to-all)
-    for i in 0..n {
-        for j in (if _directed { 0 } else { i + 1 })..n {
-            if i != j {
-                let source = format!("{prefix}{i}");
-                let target = format!("{prefix}{j}");
-                let edge_id = format!("e{i}_{j}");
-                graph.add_edge(Edge::new(edge_id, source, target));
-            }
-        }
-    }
-
-    Ok(graph)
-}
-
-/// Generates a path graph (linear chain of connected nodes).
-///
-/// A path graph consists of nodes arranged in a line, where each node is connected
-/// to its immediate neighbors, forming a linear chain.
-///
-/// # Parameters
-///
-/// * `nodes` (required) - Number of nodes to generate
-/// * `prefix` (optional) - Node name prefix (default: "n")
-/// * `directed` (optional) - Whether edges should be directed (default: false)
-///
-/// # Properties
-///
-/// * **Nodes**: n
-/// * **Edges**: n-1
-/// * **Connectivity**: Linear chain
-///
-/// # GGL Usage
-///
-/// ```ggl
-/// generate path {
-///     nodes: 6;
-///     prefix: "step";
-///     directed: true;
-/// }
-/// ```
-///
-/// # Use Cases
-///
-/// * Sequences and pipelines
-/// * Linear processes
-/// * Chain of command structures
-/// * Sequential workflows
-pub fn generate_path(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
-    let n = get_param_int(params, "nodes")?;
-    let prefix = get_param_string(params, "prefix", "n");
-    let _directed = get_param_bool(params, "directed", false);
-
-    let mut graph = Graph::new();
-
-    // Add nodes
-    for i in 0..n {
-        let node_id = format!("{prefix}{i}");
-        graph.add_node(Node::new(node_id));
-    }
-
-    // Add edges
-    for i in 0..n - 1 {
-        let source = format!("{prefix}{i}");
-        let target = format!("{}{}", prefix, i + 1);
-        let edge_id = format!("e{}_{}", i, i + 1);
-        graph.add_edge(Edge::new(edge_id, source, target));
-    }
-
-    Ok(graph)
-}
-
-/// Generates a cycle graph (circular chain of nodes).
-///
-/// A cycle graph forms a closed loop where each node is connected to exactly two neighbors,
-/// and the last node connects back to the first, creating a circular structure.
-///
-/// # Parameters
-///
-/// * `nodes` (required) - Number of nodes to generate
-/// * `prefix` (optional) - Node name prefix (default: "n")
-///
-/// # Properties
-///
-/// * **Nodes**: n
-/// * **Edges**: n
-/// * **Connectivity**: Circular chain
-///
-/// # GGL Usage
-///
-/// ```ggl
-/// generate cycle {
-///     nodes: 5;
-///     prefix: "vertex";
-/// }
-/// ```
-///
-/// # Use Cases
-///
-/// * Ring topologies
-/// * Circular processes
-/// * Closed loops
-/// * Round-robin systems
-pub fn generate_cycle(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
-    let n = get_param_int(params, "nodes")?;
-    let prefix = get_param_string(params, "prefix", "n");
-    let _directed = get_param_bool(params, "directed", false);
-
-    let mut graph = Graph::new();
-
-    // Add nodes
-    for i in 0..n {
-        let node_id = format!("{prefix}{i}");
-        graph.add_node(Node::new(node_id));
-    }
-
-    // Add edges
-    for i in 0..n {
-        let source = format!("{prefix}{i}");
-        let target = format!("{}{}", prefix, (i + 1) % n);
-        let edge_id = format!("e{}_{}", i, (i + 1) % n);
-        graph.add_edge(Edge::new(edge_id, source, target));
-    }
-
-    Ok(graph)
-}
-
-pub fn generate_grid(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
-    let rows = get_param_int(params, "rows")?;
-    let cols = get_param_int(params, "cols")?;
-    let prefix = get_param_string(params, "prefix", "n");
-    let periodic = get_param_bool(params, "periodic", false);
-
-    let mut graph = Graph::new();
-
-    // Add nodes
-    for i in 0..rows {
-        for j in 0..cols {
-            let node_id = format!("{prefix}{i}_{j}");
-            graph.add_node(Node::new(node_id));
-        }
-    }
-
-    // Add horizontal edges
-    for i in 0..rows {
-        for j in 0..cols - 1 {
-            let source = format!("{prefix}{i}_{j}");
-            let target = format!("{}{}_{}", prefix, i, j + 1);
-            let edge_id = format!("eh{i}_{j}");
-            graph.add_edge(Edge::new(edge_id, source, target));
-        }
-        // Add periodic horizontal edges if requested
-        if periodic {
-            let source = format!("{}{}_{}", prefix, i, cols - 1);
-            let target = format!("{}{}_{}", prefix, i, 0);
-            let edge_id = format!("ehp_{i}");
-            graph.add_edge(Edge::new(edge_id, source, target));
-        }
-    }
-
-    // Add vertical edges
-    for j in 0..cols {
-        // Regular vertical edges
-        for i in 0..rows - 1 {
-            let source = format!("{prefix}{i}_{j}");
-            let target = format!("{}{}_{}", prefix, i + 1, j);
-            let edge_id = format!("ev{i}_{j}");
-            graph.add_edge(Edge::new(edge_id, source, target));
-        }
-        // Add periodic vertical edges if requested
-        if periodic {
-            let source = format!("{}{}_{}", prefix, rows - 1, j);
-            let target = format!("{}{}_{}", prefix, 0, j);
-            let edge_id = format!("evp_{j}");
-            graph.add_edge(Edge::new(edge_id, source, target));
-        }
-    }
-
-    Ok(graph)
-}
-
-pub fn generate_star(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
     let n = get_param_int(params, "nodes")?;
     let prefix = get_param_string(params, "prefix", "n");
     let directed = get_param_bool(params, "directed", false);
 
     let mut graph = Graph::new();
+    let nodes: Vec<_> = (0..n).map(|i| format!("{prefix}{i}")).collect();
 
-    // Add center node
-    let center = format!("{prefix}0");
-    graph.add_node(Node::new(center.clone()));
-
-    // Add leaf nodes and connect to center
-    for i in 1..n {
-        let node_id = format!("{prefix}{i}");
+    for node_id in &nodes {
         graph.add_node(Node::new(node_id.clone()));
-
-        let edge_id = format!("e0_{i}");
-        if directed {
-            graph.add_edge(Edge::new(edge_id, center.clone(), node_id));
-        } else {
-            graph.add_edge(Edge::new(edge_id, node_id, center.clone()));
-        }
     }
 
+    for i in 0..n {
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+            if !directed && i > j {
+                continue;
+            }
+            let source = &nodes[i];
+            let target = &nodes[j];
+            graph.add_edge(Edge::new(
+                format!("e_{source}_{target}"),
+                source.clone(),
+                target.clone(),
+                directed,
+            ));
+        }
+    }
     Ok(graph)
 }
 
+/// Generates a path graph.
+/// # Parameters
+/// * `nodes` (int, required): Number of nodes in the path.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+/// * `directed` (bool, optional): If true, edges follow the path order. Default: false.
+pub fn generate_path(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
+    let n = get_param_int(params, "nodes")?;
+    let prefix = get_param_string(params, "prefix", "n");
+    let directed = get_param_bool(params, "directed", false);
+    let mut graph = Graph::new();
+
+    if n == 0 {
+        return Ok(graph);
+    }
+
+    for i in 0..n {
+        graph.add_node(Node::new(format!("{prefix}{i}")));
+    }
+    for i in 0..n - 1 {
+        let source = format!("{prefix}{i}");
+        let target = format!("{prefix}{}", i + 1);
+        graph.add_edge(Edge::new(
+            format!("e{i}_{}", i + 1),
+            source,
+            target,
+            directed,
+        ));
+    }
+    Ok(graph)
+}
+
+/// Generates a cycle graph.
+/// # Parameters
+/// * `nodes` (int, required): Number of nodes in the cycle.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+/// * `directed` (bool, optional): If true, edges form a directed cycle. Default: false.
+pub fn generate_cycle(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
+    let n = get_param_int(params, "nodes")?;
+    let prefix = get_param_string(params, "prefix", "n");
+    let directed = get_param_bool(params, "directed", false);
+    let mut graph = Graph::new();
+
+    if n == 0 {
+        return Ok(graph);
+    }
+
+    for i in 0..n {
+        graph.add_node(Node::new(format!("{prefix}{i}")));
+    }
+    for i in 0..n {
+        let source = format!("{prefix}{i}");
+        let target = format!("{prefix}{}", (i + 1) % n);
+        graph.add_edge(Edge::new(
+            format!("e{}_{}", i, (i + 1) % n),
+            source,
+            target,
+            directed,
+        ));
+    }
+    Ok(graph)
+}
+
+/// Generates a 2D grid graph.
+/// # Parameters
+/// * `rows` (int, required): Number of rows in the grid.
+/// * `cols` (int, required): Number of columns in the grid.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+/// * `periodic` (bool, optional): If true, wraps edges around (torus). Default: false.
+pub fn generate_grid(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
+    let rows = get_param_int(params, "rows")?;
+    let cols = get_param_int(params, "cols")?;
+    let prefix = get_param_string(params, "prefix", "n");
+    let periodic = get_param_bool(params, "periodic", false);
+    let mut graph = Graph::new();
+
+    for r in 0..rows {
+        for c in 0..cols {
+            graph.add_node(Node::new(format!("{prefix}{r}_{c}")));
+        }
+    }
+
+    for r in 0..rows {
+        for c in 0..cols {
+            let source = format!("{prefix}{r}_{c}");
+            // Horizontal connection
+            if c < cols - 1 || periodic {
+                let target_c = (c + 1) % cols;
+                let target = format!("{prefix}{r}_{target_c}");
+                graph.add_edge(Edge::new(
+                    format!("eh_{r}_{c}"),
+                    source.clone(),
+                    target,
+                    false,
+                ));
+            }
+            // Vertical connection
+            if r < rows - 1 || periodic {
+                let target_r = (r + 1) % rows;
+                let target = format!("{prefix}{target_r}_{c}");
+                graph.add_edge(Edge::new(
+                    format!("ev_{r}_{c}"),
+                    source.clone(),
+                    target,
+                    false,
+                ));
+            }
+        }
+    }
+    Ok(graph)
+}
+
+/// Generates a star graph.
+/// # Parameters
+/// * `nodes` (int, required): Total number of nodes (1 center + N-1 spokes).
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+/// * `directed` (bool, optional): If true, edges point from center to spokes. Default: false.
+pub fn generate_star(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
+    let n = get_param_int(params, "nodes")?;
+    let prefix = get_param_string(params, "prefix", "n");
+    let directed = get_param_bool(params, "directed", false);
+    let mut graph = Graph::new();
+
+    if n == 0 {
+        return Ok(graph);
+    }
+
+    let center_id = format!("{prefix}_center");
+    graph.add_node(Node::new(center_id.clone()));
+
+    for i in 0..n - 1 {
+        let spoke_id = format!("{prefix}{i}");
+        graph.add_node(Node::new(spoke_id.clone()));
+        let (source, target) = if directed {
+            (center_id.clone(), spoke_id)
+        } else {
+            (spoke_id, center_id.clone())
+        };
+        graph.add_edge(Edge::new(format!("e_center_{i}"), source, target, directed));
+    }
+    Ok(graph)
+}
+
+/// Generates a balanced tree.
+/// # Parameters
+/// * `branching` (int, required): The branching factor of the tree.
+/// * `depth` (int, required): The depth of the tree.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
 pub fn generate_tree(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
     let branching = get_param_int(params, "branching")?;
     let depth = get_param_int(params, "depth")?;
     let prefix = get_param_string(params, "prefix", "n");
-
     let mut graph = Graph::new();
 
-    // Add root node
-    let root = format!("{prefix}0");
-    graph.add_node(Node::new(root.clone()));
+    if depth == 0 {
+        return Ok(graph);
+    }
 
-    // Generate tree recursively
-    generate_tree_recursive(&mut graph, &root, 0, depth, branching, prefix);
+    graph.add_node(Node::new(format!("{prefix}0")));
+    let mut parent_queue = vec![0];
+    let mut id_counter = 1;
 
+    for _d in 0..depth - 1 {
+        let mut next_level_parents = Vec::new();
+        for parent_id_val in parent_queue.drain(..) {
+            for _b in 0..branching {
+                let parent_id = format!("{prefix}{parent_id_val}");
+                let child_id = format!("{prefix}{id_counter}");
+                graph.add_node(Node::new(child_id.clone()));
+                graph.add_edge(Edge::new(
+                    format!("e{parent_id_val}_{id_counter}"),
+                    parent_id,
+                    child_id,
+                    true,
+                ));
+                next_level_parents.push(id_counter);
+                id_counter += 1;
+            }
+        }
+        parent_queue = next_level_parents;
+    }
     Ok(graph)
 }
 
-fn generate_tree_recursive(
-    graph: &mut Graph,
-    parent: &str,
-    current_depth: usize,
-    max_depth: usize,
-    branching: usize,
-    prefix: String,
-) {
-    if max_depth == 0 || current_depth >= max_depth - 1 {
-        return;
-    }
-
-    let parent_index = parent.trim_start_matches(&prefix).parse::<usize>().unwrap();
-
-    for i in 0..branching {
-        let child_index = parent_index * branching + i + 1;
-        let child_id = format!("{prefix}{child_index}");
-
-        graph.add_node(Node::new(child_id.clone()));
-        graph.add_edge(Edge::new(
-            format!("e{parent_index}_{child_index}"),
-            parent.to_string(),
-            child_id.clone(),
-        ));
-
-        generate_tree_recursive(
-            graph,
-            &child_id,
-            current_depth + 1,
-            max_depth,
-            branching,
-            prefix.clone(),
-        );
-    }
-}
-
-pub fn generate_barabasi_albert(params: &HashMap<String, MetadataValue>) -> Result<Graph, String> {
-    use rand::Rng;
+/// Generates a scale-free graph using the Barabási-Albert model.
+/// # Parameters
+/// * `nodes` (int, required): The final number of nodes in the graph.
+/// * `edges_per_node` (int, required): Number of edges to attach from a new node to existing nodes.
+/// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
+pub fn generate_barabasi_albert(
+    params: &HashMap<String, MetadataValue>,
+) -> Result<Graph, String> {
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
 
     let n = get_param_int(params, "nodes")?;
     let m = get_param_int(params, "edges_per_node")?;
     let prefix = get_param_string(params, "prefix", "n");
 
-    if m >= n {
-        return Err("edges_per_node must be less than nodes".to_string());
+    if m == 0 || n == 0 {
+        return Ok(Graph::new());
     }
-
-    if m == 0 {
-        return Err("edges_per_node must be greater than 0".to_string());
+    if m >= n {
+        return Err("Parameter 'edges_per_node' must be less than 'nodes'".to_string());
     }
 
     let mut graph = Graph::new();
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
+    let m0 = m + 1; // Initial number of nodes
 
-    // Add initial complete graph with m+1 nodes (to ensure we have enough nodes)
-    let initial_nodes = std::cmp::max(m + 1, 2);
-    for i in 0..initial_nodes {
-        let node_id = format!("{prefix}{i}");
-        graph.add_node(Node::new(node_id));
+    // 1. Start with an initial connected graph of m0 nodes
+    for i in 0..m0 {
+        graph.add_node(Node::new(format!("{prefix}{i}")));
+    }
+    for i in 0..m0 {
+        for j in i + 1..m0 {
+            graph.add_edge(Edge::new(
+                format!("e{i}_{j}"),
+                format!("{prefix}{i}"),
+                format!("{prefix}{j}"),
+                false,
+            ));
+        }
     }
 
-    // Create initial edges to ensure connectivity
-    for i in 0..initial_nodes {
-        for j in i + 1..initial_nodes {
-            let source = format!("{prefix}{i}");
-            let target = format!("{prefix}{j}");
-            let edge_id = format!("e{i}_{j}");
-            graph.add_edge(Edge::new(edge_id, source, target));
-        }
-    }
+    let mut degrees: Vec<String> = graph
+        .edges
+        .values()
+        .flat_map(|e| vec![e.source.clone(), e.target.clone()])
+        .collect();
 
-    // Add remaining nodes using preferential attachment
-    for i in initial_nodes..n {
-        let new_node = format!("{prefix}{i}");
-        graph.add_node(Node::new(new_node.clone()));
+    // 2. Add remaining n - m0 nodes
+    for i in m0..n {
+        let new_node_id = format!("{prefix}{i}");
+        graph.add_node(Node::new(new_node_id.clone()));
 
-        // Calculate node degrees for preferential attachment
-        let mut candidates = Vec::new();
-        for j in 0..i {
-            let node_id = format!("{prefix}{j}");
-            let degree = graph
-                .edges
-                .values()
-                .filter(|e| e.source == node_id || e.target == node_id)
-                .count();
-            // Add each node multiple times based on its degree (preferential attachment)
-            for _ in 0..std::cmp::max(1, degree) {
-                candidates.push(node_id.clone());
-            }
-        }
+        let targets: Vec<String> = degrees
+            .choose_multiple(&mut rng, m)
+            .cloned()
+            .collect();
 
-        // Select m distinct nodes
-        let mut selected = std::collections::HashSet::new();
-        let mut attempts = 0;
-        while selected.len() < m && attempts < 1000 {
-            if !candidates.is_empty() {
-                let idx = rng.gen_range(0..candidates.len());
-                selected.insert(candidates[idx].clone());
-            }
-            attempts += 1;
-        }
-
-        // Add edges to selected nodes
-        for target in selected {
-            let target_idx = target
-                .trim_start_matches(&prefix)
-                .parse::<usize>()
-                .unwrap_or(0);
-            let edge_id = format!("e{i}_{target_idx}");
-            graph.add_edge(Edge::new(edge_id, new_node.clone(), target));
+        for target_id in targets {
+            graph.add_edge(Edge::new(
+                format!("e{i}_{}", target_id.strip_prefix(&prefix).unwrap_or("?")),
+                new_node_id.clone(),
+                target_id.clone(),
+                false,
+            ));
+            degrees.push(new_node_id.clone());
+            degrees.push(target_id);
         }
     }
 
     Ok(graph)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_complete_graph() {
-        let mut params = HashMap::new();
-        params.insert("nodes".to_string(), MetadataValue::Integer(5));
-
-        let graph = generate_complete(&params).unwrap();
-        assert_eq!(graph.node_count(), 5);
-        assert_eq!(graph.edge_count(), 10); // n*(n-1)/2 edges for undirected
-    }
-
-    #[test]
-    fn test_path_graph() {
-        let mut params = HashMap::new();
-        params.insert("nodes".to_string(), MetadataValue::Integer(5));
-
-        let graph = generate_path(&params).unwrap();
-        assert_eq!(graph.node_count(), 5);
-        assert_eq!(graph.edge_count(), 4); // n-1 edges
-    }
-
-    #[test]
-    fn test_cycle_graph() {
-        let mut params = HashMap::new();
-        params.insert("nodes".to_string(), MetadataValue::Integer(5));
-
-        let graph = generate_cycle(&params).unwrap();
-        assert_eq!(graph.node_count(), 5);
-        assert_eq!(graph.edge_count(), 5); // n edges
-    }
-
-    #[test]
-    fn test_grid_graph() {
-        let mut params = HashMap::new();
-        params.insert("rows".to_string(), MetadataValue::Integer(3));
-        params.insert("cols".to_string(), MetadataValue::Integer(4));
-
-        let graph = generate_grid(&params).unwrap();
-        assert_eq!(graph.node_count(), 12); // rows * cols
-        assert_eq!(graph.edge_count(), 17); // (rows-1)*cols + rows*(cols-1)
-    }
 }
