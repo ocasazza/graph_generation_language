@@ -14,28 +14,11 @@ A domain-specific language for creating and manipulating graphs through declarat
 
 ## Quick Start
 
-### Commands
-
-We also provide a [`justfile`](https://just.systems/) for Makefile'esque commands to be run inside of the devShell.
-
-```zsh
-❯ just
-Available recipes:
-    default
-    pre-commit-all       # Run pre-commit hooks on all files, including autoformatting
-    run *ARGS            # Run 'cargo run' on the project
-    test *ARGS           # Run all tests
-    test-coverage        # Run tests with coverage
-    test-file FILE *ARGS # Run specific test file
-    test-watch *ARGS     # Run tests with bacon (auto-recompiles and re-runs tests)
-    watch *ARGS          # Run 'bacon' to run the project (auto-recompiles)
-```
-
 ### Installation
 
 Using Nix Flake
 
-If you have [Nix](https://nixos.org/download.html) and [direnv](https://direnv.net/) installed:
+You need [Nix](https://nixos.org/download.html) and [direnv](https://direnv.net/) installed:
 
 ```bash
 git clone https://github.com/ocasazza/graph-generation-language.git
@@ -43,7 +26,7 @@ cd graph-generation-language
 direnv allow  # This will automatically set up the development environment
 ```
 
-This repo uses [Flakes](https://nixos.asia/en/flakes) from the get-go.
+This repo uses [Flakes](https://nixos.asia/en/flakes).
 
 ```bash
 # Dev shell
@@ -56,13 +39,13 @@ nix develop -c cargo run
 nix build
 ```
 
-For documentation building:
+For building documentation:
 
 ```bash
 cargo doc --document-private-items --package graph_generation_language --all-features
 ```
 
-Once built, these docs can be viewed locally at `./graph-generation-language/target/doc/graph_generation_language/index.html`
+Once built, these docs can be viewed locally at `./graph_generation_language/target/doc/graph_generation_language/index.html`
 
 For more, see nix apps:
 

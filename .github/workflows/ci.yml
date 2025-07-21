@@ -102,7 +102,7 @@ jobs:
   # Release unpublished packages
   release:
     needs: omnix
-    if: ${{ needs.omnix.result == 'success' && ( github.base_ref == 'main' || github.ref == 'refs/heads/main' ) }}
+    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release-plz.outputs.releases_created }}
