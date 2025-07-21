@@ -2,17 +2,8 @@
 
 A domain-specific language for creating and manipulating graphs through declarative syntax. GGL allows you to define graph structures, generate common graph topologies, and apply transformation rules to evolve graphs over time.
 
-[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://ocasazza.github.io/graph-generation-language/)
-
-## Features
-
-- **Declarative Syntax**: Define graphs using intuitive node and edge declarations
-- **Built-in Generators**: Create common graph structures (complete, path, cycle, grid, star, tree, scale-free)
-- **Transformation Rules**: Apply pattern-based rules to modify graph structure
-- **Rich Attributes**: Support for typed nodes and edges with metadata
-- **JSON Output**: Export graphs in standard JSON format
-
-## Quick Start
+[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://ocasazza.github.io/graph_generation_language/rustdoc/share/doc/graph_generation_language/index.html)
+[![Demo](https://img.shields.io/badge/demo)](https://ocasazza.github.io/graph_generation_language/demo/index.html)
 
 ### Installation
 
@@ -91,52 +82,6 @@ For more, see nix apps:
 │ graphGenerationLanguageWasm   │ N/A         │
 ╰───────────────────────────────┴─────────────╯
 ```
-
-### Basic Example
-
-```ggl
-graph social_network {
-    // Define nodes with types and attributes
-    node alice :person [name="Alice", age=30];
-    node bob :person [name="Bob", age=25];
-    node company :organization [name="Tech Corp"];
-
-    // Create relationships
-    edge friendship: alice -- bob [strength=0.8];
-    edge employment: alice -> company [role="Engineer"];
-
-    // Generate additional structure
-    generate complete {
-        nodes: 5;
-        prefix: "user";
-    }
-
-    // Apply transformation rules
-    rule add_metadata {
-        lhs { node N :person; }
-        rhs { node N :person [active=true]; }
-    }
-
-    apply add_metadata 10 times;
-}
-```
-
-### Running
-
-```bash
-# Run with your GGL file
-cargo run -- your_graph.ggl
-
-# Run tests
-cargo test
-
-```
-
-## Tips
-
-- Run `nix flake update` to update all flake inputs.
-- Run `nix --accept-flake-config run github:juspay/omnix ci` to build _all_ outputs.
-- [pre-commit] hooks will automatically be setup in Nix shell. You can also run `pre-commit run -a` manually to run the hooks (e.g.: to autoformat the project tree using `rustfmt`, `nixpkgs-fmt`, etc.).
 
 ## License
 
