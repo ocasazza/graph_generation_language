@@ -10,7 +10,7 @@ resolver = "2"
 [workspace.package]
 authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
 edition = "2021"
-version = "0.0.4"
+version = "0.0.5"
 license = "MIT"
 repository = "https://github.com/ocasazza/graph_generation_language"
 homepage = "https://ocasazza.github.io/graph_generation_language/"
