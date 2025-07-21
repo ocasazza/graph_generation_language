@@ -8,13 +8,9 @@ description = "Command-line interface for the Graph Generation Language (GGL)"
 
 [[bin]]
 name = "ggl"
-path = "src/main.rs"
 
 [dependencies]
-graph_generation_language = { path = "../lib" }
+graph_generation_language = { path = "../lib", version = "0.0.3"  }
 clap = { version = "4.3.14", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-[build-dependencies]
-# No dependencies needed for the build script
