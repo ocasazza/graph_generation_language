@@ -95,7 +95,7 @@ impl Component for App {
                         {self.render_output()}
                     </div>
                 </div>
-                <button class="generate-btn ggl-generate-btn" onclick={on_generate}>
+                <button class="generate-btn" onclick={on_generate}>
                     {"🔄 Generate Graph"}
                 </button>
             </div>

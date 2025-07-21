@@ -180,7 +180,7 @@ jobs:
           # Create demo directory in docs output
           mkdir -p target/doc/demo
           # Copy WASM demo files from client-trunk artifact if available
-          cp -r artifacts/client-trunk/*client-trunk*/* target/doc/demo/ 2>/dev/null || true
+          cp -r artifacts/ggl_client-trunk/*client-trunk*/* target/doc/demo/ 2>/dev/null || true
           # Copy the GitHub Pages index template as the main index
           cp .github/pages_index.html target/doc/index.html
 

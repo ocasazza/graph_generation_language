@@ -1,11 +1,14 @@
 body {
-  background-color: #eee;
-}
-
-body {
   font-family: 'Courier New', Courier, monospace;
   background-color: #000000;
   color: wheat;
+  border: 1px solid wheat;
+  border-radius: 8px;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  position: absolute;
 }
 
 .container {
@@ -46,24 +49,27 @@ body {
 /* GGL Editor Styles */
 .ggl-editor-container {
   text-align: left;
+  height: 100%;
 }
 
 .ggl-editor-layout {
   display: flex;
-  height: 500px;
-  justify-items: be;
+  height: 100%;
+  max-height: 100%;
 }
 
 .ggl-editor-panel {
   flex: 1;
-  height: 100%;
   border: 1px solid wheat;
   border-radius: 6px;
   overflow: hidden;
+  max-height: 100%;
+
 }
 
 .ggl-monaco-editor {
   height: 100%;
+  max-height: 100%;
 }
 
 .ggl-output-panel {
@@ -72,6 +78,7 @@ body {
   overflow: hidden;
   border: 1px solid wheat;
   border-radius: 6px;
+  max-height: 100%;
 }
 
 .ggl-generate-btn {
@@ -87,6 +94,7 @@ body {
   border-radius: 6px;
   font-family: 'Courier New', monospace;
   resize: none;
+  max-height: 100%;
 }
 
 .ggl-monaco-fallback.hidden {
