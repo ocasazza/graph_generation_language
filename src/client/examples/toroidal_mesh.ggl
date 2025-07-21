@@ -1,0 +1,29 @@
+graph toroidal_mesh {
+    let rows = 6;
+    let cols = 6;
+
+    // Create the nodes
+    for i in 0..rows {
+        for j in 0..cols {
+            node "n{i}_{j}" :lattice [row=i, col=j, type="2d_torus"];
+        }
+    }
+
+    // Create the horizontal edges
+    for i in 0..rows {
+        for j in 0..cols {
+            if j + 1 < cols {
+                edge: "n{i}_{j}" -> "n{i}_{j+1}" [direction="horizontal"];
+            }
+        }
+    }
+
+    // Create the vertical edges
+    for i in 0..rows {
+        for j in 0..cols {
+            if i + 1 < rows {
+                edge: "n{i}_{j}" -> "n{i+1}_{j}" [direction="vertical"];
+            }
+        }
+    }
+}

@@ -1,0 +1,95 @@
+graph hpc_cluster {
+    // Storage Fabric - Parallel File System
+    node storage_head :storage [type="metadata_server", capacity="10TB"];
+    node storage_1 :storage [type="data_server", capacity="100TB"];
+    node storage_2 :storage [type="data_server", capacity="100TB"];
+    node storage_3 :storage [type="data_server", capacity="100TB"];
+
+    // Storage fabric connections (InfiniBand)
+    edge: storage_head -- storage_1 [fabric="infiniband", bandwidth="100Gbps"];
+    edge: storage_head -- storage_2 [fabric="infiniband", bandwidth="100Gbps"];
+    edge: storage_head -- storage_3 [fabric="infiniband", bandwidth="100Gbps"];
+
+    // Management Fabric
+    node login_1 :management [type="login_node", cores=64];
+    node login_2 :management [type="login_node", cores=64];
+    node scheduler :management [type="slurm_controller"];
+    node monitor :management [type="monitoring"];
+
+    // Management connections
+    edge: login_1 -- scheduler [fabric="ethernet", bandwidth="10Gbps"];
+    edge: login_2 -- scheduler [fabric="ethernet", bandwidth="10Gbps"];
+    edge: monitor -- scheduler [fabric="ethernet", bandwidth="1Gbps"];
+
+    // GPU Compute Fabric - 3D Torus Topology
+    let gpu_rows = 4;
+    let gpu_cols = 4;
+    let gpu_layers = 2;
+
+    // Create GPU compute nodes
+    for layer in 0..gpu_layers {
+        for row in 0..gpu_rows {
+            for col in 0..gpu_cols {
+                node "gpu{layer}_{row}_{col}" :compute [
+                    type="gpu_node",
+                    gpus=8,
+                    memory="512GB",
+                    gpu_type="H100"
+                ];
+            }
+        }
+    }
+
+    // 3D Torus connections - X dimension
+    for layer in 0..gpu_layers {
+        for row in 0..gpu_rows {
+            for col in 0..gpu_cols {
+                if col + 1 < gpu_cols {
+                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer}_{row}_{col+1}" [
+                        fabric="nvlink",
+                        bandwidth="900GB/s",
+                        dimension="x"
+                    ];
+                }
+            }
+        }
+    }
+
+    // 3D Torus connections - Y dimension
+    for layer in 0..gpu_layers {
+        for row in 0..gpu_rows {
+            for col in 0..gpu_cols {
+                if row + 1 < gpu_rows {
+                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer}_{row+1}_{col}" [
+                        fabric="nvlink",
+                        bandwidth="900GB/s",
+                        dimension="y"
+                    ];
+                }
+            }
+        }
+    }
+
+    // 3D Torus connections - Z dimension
+    for layer in 0..gpu_layers {
+        for row in 0..gpu_rows {
+            for col in 0..gpu_cols {
+                if layer + 1 < gpu_layers {
+                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer+1}_{row}_{col}" [
+                        fabric="nvlink",
+                        bandwidth="900GB/s",
+                        dimension="z"
+                    ];
+                }
+            }
+        }
+    }
+
+    // Connect management to compute fabric
+    edge: login_1 -- "gpu0_0_0" [fabric="infiniband", bandwidth="200Gbps"];
+    edge: login_2 -- "gpu1_0_0" [fabric="infiniband", bandwidth="200Gbps"];
+
+    // Connect storage to compute fabric
+    edge: storage_head -- "gpu0_0_0" [fabric="infiniband", bandwidth="200Gbps"];
+    edge: storage_head -- "gpu1_0_0" [fabric="infiniband", bandwidth="200Gbps"];
+}

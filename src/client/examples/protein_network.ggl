@@ -1,0 +1,38 @@
+graph protein_interaction_network {
+    // Central signaling proteins
+    node p53 :protein [name="tumor suppressor p53", function="DNA damage response"];
+    node MDM2 :protein [name="MDM2", function="p53 regulation"];
+    node ATM :protein [name="ATM kinase", function="DNA damage sensor"];
+
+    // Downstream effectors
+    node p21 :protein [name="p21", function="cell cycle arrest"];
+    node BAX :protein [name="BAX", function="apoptosis"];
+    node PUMA :protein [name="PUMA", function="apoptosis"];
+
+    // Cell cycle proteins
+    node CDK2 :protein [name="CDK2", function="S phase progression"];
+    node cyclinE :protein [name="Cyclin E", function="CDK2 activation"];
+
+    // DNA repair proteins
+    node BRCA1 :protein [name="BRCA1", function="homologous recombination"];
+    node BRCA2 :protein [name="BRCA2", function="homologous recombination"];
+
+    // Protein-protein interactions
+    edge: ATM -> p53 [interaction="phosphorylation", activates=true];
+    edge: p53 -> p21 [interaction="transcription", activates=true];
+    edge: p53 -> BAX [interaction="transcription", activates=true];
+    edge: p53 -> PUMA [interaction="transcription", activates=true];
+    edge: MDM2 -> p53 [interaction="ubiquitination", activates=false];
+    edge: p53 -> MDM2 [interaction="transcription", activates=true];
+
+    // Cell cycle regulation
+    edge: p21 -> CDK2 [interaction="inhibition", activates=false];
+    edge: cyclinE -> CDK2 [interaction="binding", activates=true];
+
+    // DNA repair pathway
+    edge: ATM -> BRCA1 [interaction="phosphorylation", activates=true];
+    edge: BRCA1 -> BRCA2 [interaction="recruitment", activates=true];
+
+    // Feedback loops
+    edge: p21 -> p53 [interaction="stabilization", activates=true];
+}

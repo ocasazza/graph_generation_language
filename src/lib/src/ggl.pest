@@ -9,13 +9,16 @@ COMMENT = _{
 file = { SOI ~ "graph" ~ identifier? ~ "{" ~ statement* ~ "}" ~ EOI }
 
 // --- Statements ---
-statement = _{ let_declaration | for_loop | node_declaration | edge_declaration | generate_statement | rule_definition | apply_statement }
+statement = _{ let_declaration | for_loop | if_statement | node_declaration | edge_declaration | generate_statement | rule_definition | apply_statement }
 
 // Variable Declaration
 let_declaration = { "let" ~ identifier ~ "=" ~ expression ~ ";" }
 
 // For Loop
 for_loop = { "for" ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "{" ~ statement* ~ "}" }
+
+// If Statement
+if_statement = { "if" ~ conditional_expression ~ "{" ~ statement* ~ "}" }
 
 // Node and Edge Declarations
 node_declaration = { "node" ~ expression ~ (":" ~ expression)? ~ attributes? ~ ";" }
@@ -39,7 +42,16 @@ attributes = { "[" ~ (attribute_pair ~ ("," ~ attribute_pair)*)? ~ "]" }
 attribute_pair = { identifier ~ "=" ~ expression }
 
 // --- Expressions and Primitives ---
-expression = { literal | formatted_string | identifier }
+expression = { arithmetic_expression | literal | formatted_string | identifier }
+
+conditional_expression = { arithmetic_expression ~ comparison_operator ~ arithmetic_expression }
+comparison_operator = { "<=" | ">=" | "==" | "!=" | "<" | ">" }
+
+arithmetic_expression = { term ~ (add_op ~ term)* }
+term = { factor ~ (mul_op ~ factor)* }
+factor = { "(" ~ arithmetic_expression ~ ")" | literal | identifier }
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" | "%" }
 
 literal = _{ string | float | integer | boolean }
 identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -51,4 +63,4 @@ boolean = @{ "true" | "false" }
 // Formatted String for dynamic identifiers: "node_{i}"
 formatted_string = { "\"" ~ (string_part | var_in_string)* ~ "\"" }
 string_part = @{ ( (!("{") ~ !("\"") ~ ANY )+ ) }
-var_in_string = { "{" ~ identifier ~ "}" }
+var_in_string = { "{" ~ arithmetic_expression ~ "}" }

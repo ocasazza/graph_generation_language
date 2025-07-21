@@ -1,0 +1,14 @@
+graph social_network {
+    // Define nodes with types and attributes
+    node alice :person [name="Alice", age=30];
+    node bob :person [name="Bob", age=25];
+
+    // Create relationships
+    edge friendship: alice -- bob [strength=0.8];
+
+    // Generate additional structure
+    generate complete {
+        nodes: 3;
+        prefix: "user";
+    }
+}

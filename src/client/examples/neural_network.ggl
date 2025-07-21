@@ -1,0 +1,45 @@
+graph neural_network {
+    // Input layer
+    let input_size = 4;
+    for i in 0..input_size {
+        node "input{i}" :neuron [layer="input", activation="linear"];
+    }
+
+    // Hidden layer
+    let hidden_size = 6;
+    for i in 0..hidden_size {
+        node "hidden{i}" :neuron [layer="hidden", activation="relu"];
+    }
+
+    // Output layer
+    let output_size = 3;
+    for i in 0..output_size {
+        node "output{i}" :neuron [layer="output", activation="softmax"];
+    }
+
+    // Connect input to hidden layer
+    for i in 0..input_size {
+        for j in 0..hidden_size {
+            edge: "input{i}" -> "hidden{j}" [weight=0.5, type="synapse"];
+        }
+    }
+
+    // Connect hidden to output layer
+    for i in 0..hidden_size {
+        for j in 0..output_size {
+            edge: "hidden{i}" -> "output{j}" [weight=0.3, type="synapse"];
+        }
+    }
+
+    // Add bias neurons
+    node bias_hidden :neuron [type="bias", value=1.0];
+    node bias_output :neuron [type="bias", value=1.0];
+
+    for i in 0..hidden_size {
+        edge: bias_hidden -> "hidden{i}" [weight=0.1, type="bias"];
+    }
+
+    for i in 0..output_size {
+        edge: bias_output -> "output{i}" [weight=0.1, type="bias"];
+    }
+}

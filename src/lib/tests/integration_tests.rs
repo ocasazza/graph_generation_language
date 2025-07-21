@@ -940,6 +940,386 @@ mod real_world_scenarios {
 }
 
 #[cfg(test)]
+mod conditional_statement_integration_tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_conditional_execution() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                let size = 3;
+                for i in 0..size {
+                    if i < 2 {
+                        node "conditional_node_{i}";
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute conditional statements: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+
+        // Should only create 2 nodes (i=0, i=1), not 3
+        assert_eq!(nodes.len(), 2);
+        assert!(nodes.contains_key("conditional_node_0"));
+        assert!(nodes.contains_key("conditional_node_1"));
+        assert!(!nodes.contains_key("conditional_node_2"));
+    }
+
+    #[test]
+    fn test_conditional_edge_creation() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph mesh {
+                let rows = 3;
+                let cols = 3;
+
+                // Create nodes
+                for i in 0..rows {
+                    for j in 0..cols {
+                        node "n{i}_{j}";
+                    }
+                }
+
+                // Create horizontal edges with conditionals
+                for i in 0..rows {
+                    for j in 0..cols {
+                        if j + 1 < cols {
+                            edge: "n{i}_{j}" -> "n{i}_{j+1}" [direction="horizontal"];
+                        }
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute conditional edge creation: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+        let edges = graph["edges"].as_object().unwrap();
+
+        // Should have 9 nodes (3x3 grid)
+        assert_eq!(nodes.len(), 9);
+
+        // Should have 6 horizontal edges (3 rows * 2 edges per row)
+        assert_eq!(edges.len(), 6);
+
+        // Verify specific nodes exist
+        assert!(nodes.contains_key("n0_0"));
+        assert!(nodes.contains_key("n2_2"));
+
+        // Verify edge attributes
+        for (_, edge) in edges {
+            assert_eq!(edge["metadata"]["direction"], "horizontal");
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_in_conditions() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                let threshold = 5;
+                for i in 0..10 {
+                    if i * 2 < threshold {
+                        node "below_threshold_{i}";
+                    }
+                    if i + 3 > threshold {
+                        node "above_threshold_{i}";
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute arithmetic in conditions: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+
+        // i*2 < 5: i=0,1,2 (2*0=0<5, 2*1=2<5, 2*2=4<5)
+        assert!(nodes.contains_key("below_threshold_0"));
+        assert!(nodes.contains_key("below_threshold_1"));
+        assert!(nodes.contains_key("below_threshold_2"));
+        assert!(!nodes.contains_key("below_threshold_3")); // 2*3=6 >= 5
+
+        // i+3 > 5: i=3,4,5,6,7,8,9 (3+3=6>5, etc.)
+        assert!(nodes.contains_key("above_threshold_3"));
+        assert!(nodes.contains_key("above_threshold_9"));
+        assert!(!nodes.contains_key("above_threshold_2")); // 2+3=5 <= 5
+    }
+
+    #[test]
+    fn test_all_comparison_operators() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                let value = 5;
+                for i in 0..10 {
+                    if i < value {
+                        node "less_than_{i}";
+                    }
+                    if i > value {
+                        node "greater_than_{i}";
+                    }
+                    if i <= value {
+                        node "less_equal_{i}";
+                    }
+                    if i >= value {
+                        node "greater_equal_{i}";
+                    }
+                    if i == value {
+                        node "equal_{i}";
+                    }
+                    if i != value {
+                        node "not_equal_{i}";
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute all comparison operators: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+
+        // Test specific cases for i=5 (value=5)
+        assert!(nodes.contains_key("less_equal_5"));
+        assert!(nodes.contains_key("greater_equal_5"));
+        assert!(nodes.contains_key("equal_5"));
+        assert!(!nodes.contains_key("not_equal_5"));
+        assert!(!nodes.contains_key("less_than_5"));
+        assert!(!nodes.contains_key("greater_than_5"));
+
+        // Test specific cases for i=3 (< value)
+        assert!(nodes.contains_key("less_than_3"));
+        assert!(nodes.contains_key("less_equal_3"));
+        assert!(nodes.contains_key("not_equal_3"));
+        assert!(!nodes.contains_key("greater_than_3"));
+        assert!(!nodes.contains_key("greater_equal_3"));
+        assert!(!nodes.contains_key("equal_3"));
+    }
+
+    #[test]
+    fn test_nested_conditionals() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                for i in 0..5 {
+                    if i > 1 {
+                        if i < 4 {
+                            node "nested_{i}";
+                            if i == 2 {
+                                node "special_{i}";
+                            }
+                        }
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute nested conditionals: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+
+        // Should create nested nodes for i=2,3 (1 < i < 4)
+        assert!(nodes.contains_key("nested_2"));
+        assert!(nodes.contains_key("nested_3"));
+        assert!(!nodes.contains_key("nested_0"));
+        assert!(!nodes.contains_key("nested_1"));
+        assert!(!nodes.contains_key("nested_4"));
+
+        // Should create special node only for i=2
+        assert!(nodes.contains_key("special_2"));
+        assert!(!nodes.contains_key("special_3"));
+    }
+
+    #[test]
+    fn test_conditional_with_complex_arithmetic() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                let size = 4;
+                for i in 0..size {
+                    for j in 0..size {
+                        // Create nodes in upper triangle only
+                        if i + j < size {
+                            node "upper_{i}_{j}";
+                        }
+                        // Create edges with complex condition
+                        if i * 2 + j > 3 {
+                            if i != j {
+                                edge: "upper_{i}_{j}" -> "upper_{j}_{i}" [type="complex"];
+                            }
+                        }
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute complex arithmetic conditionals: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+        let edges = graph["edges"].as_object().unwrap();
+
+        // Verify upper triangle nodes are created (i+j < 4)
+        assert!(nodes.contains_key("upper_0_0")); // 0+0=0 < 4
+        assert!(nodes.contains_key("upper_1_2")); // 1+2=3 < 4
+        assert!(nodes.contains_key("upper_3_0")); // 3+0=3 < 4
+        assert!(!nodes.contains_key("upper_3_3")); // 3+3=6 >= 4
+
+        // Verify complex edges exist where they should
+        assert!(edges.len() > 0);
+        for (_, edge) in edges {
+            assert_eq!(edge["metadata"]["type"], "complex");
+        }
+    }
+
+    #[test]
+    fn test_conditional_crystal_lattice_pattern() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph crystal {
+                let lattice_size = 3;
+
+                // Create atoms
+                for x in 0..lattice_size {
+                    for y in 0..lattice_size {
+                        for z in 0..lattice_size {
+                            node "C{x}_{y}_{z}" :atom [element="Carbon"];
+                        }
+                    }
+                }
+
+                // Create bonds with conditions
+                for x in 0..lattice_size {
+                    for y in 0..lattice_size {
+                        for z in 0..lattice_size {
+                            if x + 1 < lattice_size {
+                                edge: "C{x}_{y}_{z}" -- "C{x+1}_{y}_{z}" [bond_type="covalent"];
+                            }
+                            if y + 1 < lattice_size {
+                                edge: "C{x}_{y}_{z}" -- "C{x}_{y+1}_{z}" [bond_type="covalent"];
+                            }
+                            if z + 1 < lattice_size {
+                                edge: "C{x}_{y}_{z}" -- "C{x}_{y}_{z+1}" [bond_type="covalent"];
+                            }
+                        }
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_ok(), "Failed to execute crystal lattice pattern: {:?}", result.err());
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+        let edges = graph["edges"].as_object().unwrap();
+
+        // Should have 27 atoms (3x3x3)
+        assert_eq!(nodes.len(), 27);
+
+        // Should have proper number of bonds
+        // Each internal atom has 3 bonds, edge atoms have fewer
+        // For 3x3x3: 18 bonds in x-direction + 18 in y-direction + 18 in z-direction = 54 bonds
+        assert_eq!(edges.len(), 54);
+
+        // Verify specific atoms exist
+        assert!(nodes.contains_key("C0_0_0"));
+        assert!(nodes.contains_key("C2_2_2"));
+
+        // Verify all nodes are carbon atoms
+        for (_, node) in nodes {
+            assert_eq!(node["metadata"]["element"], "Carbon");
+            assert_eq!(node["type"], "atom");
+        }
+
+        // Verify all edges are covalent bonds
+        for (_, edge) in edges {
+            assert_eq!(edge["metadata"]["bond_type"], "covalent");
+        }
+    }
+
+    #[test]
+    fn test_conditional_error_handling() {
+        let mut engine = GGLEngine::new();
+
+        // Test division by zero in condition
+        let ggl_code = r#"
+            graph test {
+                let zero = 0;
+                for i in 1..3 {
+                    if i / zero > 1 {
+                        node "never_created";
+                    }
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_err(), "Should fail with division by zero");
+
+        let error_msg = result.err().unwrap();
+        assert!(error_msg.contains("Division by zero"));
+    }
+
+    #[test]
+    fn test_conditional_with_undefined_variable() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph test {
+                if undefined_var < 5 {
+                    node "should_not_exist";
+                }
+            }
+        "#;
+
+        let result = engine.generate_from_ggl(ggl_code);
+        assert!(result.is_err(), "Should fail with undefined variable");
+
+        let error_msg = result.err().unwrap();
+        // Check for the actual error message that would be returned
+        assert!(error_msg.contains("Cannot evaluate term") ||
+               error_msg.contains("Undefined variable") ||
+               error_msg.contains("Expected integer value"),
+               "Expected undefined variable error, got: {}", error_msg);
+    }
+}
+
+#[cfg(test)]
 mod performance_tests {
     use super::*;
 
@@ -1010,6 +1390,50 @@ mod performance_tests {
         for (_, node) in nodes {
             assert_eq!(node["metadata"]["processed"], true);
             assert_eq!(node["metadata"]["timestamp"], 123456);
+        }
+    }
+
+    #[test]
+    fn test_conditional_performance() {
+        let mut engine = GGLEngine::new();
+
+        let ggl_code = r#"
+            graph perf_test {
+                for i in 0..100 {
+                    for j in 0..100 {
+                        if i + j < 150 {
+                            if i * j > 100 {
+                                node "perf_{i}_{j}";
+                            }
+                        }
+                    }
+                }
+            }
+        "#;
+
+        let start = std::time::Instant::now();
+        let result = engine.generate_from_ggl(ggl_code);
+        let duration = start.elapsed();
+
+        assert!(result.is_ok(), "Performance test failed: {:?}", result.err());
+        assert!(duration.as_secs() < 15); // Should complete within 15 seconds
+
+        let json_str = result.unwrap();
+        let graph: Value = serde_json::from_str(&json_str).unwrap();
+
+        let nodes = graph["nodes"].as_object().unwrap();
+
+        // Should have created a significant number of nodes
+        assert!(nodes.len() > 100);
+
+        // All created nodes should meet both conditions
+        for (key, _) in nodes {
+            if let Some(parts) = key.strip_prefix("perf_").and_then(|s| s.split_once('_')) {
+                let i: i64 = parts.0.parse().unwrap();
+                let j: i64 = parts.1.parse().unwrap();
+                assert!(i + j < 150, "Node {} failed first condition", key);
+                assert!(i * j > 100, "Node {} failed second condition", key);
+            }
         }
     }
 }

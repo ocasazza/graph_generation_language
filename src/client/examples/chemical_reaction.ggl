@@ -1,0 +1,28 @@
+graph simple_reaction {
+    // Reactants
+    node H2 :molecule [name="Hydrogen", formula="H2", phase="gas"];
+    node O2 :molecule [name="Oxygen", formula="O2", phase="gas"];
+
+    // Product
+    node H2O :molecule [name="Water", formula="H2O", phase="liquid"];
+
+    // Catalyst
+    node Pt :catalyst [name="Platinum", type="metal"];
+
+    // Reaction pathway
+    edge formation1: H2 -> H2O [reaction="2H2 + O2 -> 2H2O", stoichiometry=2];
+    edge formation2: O2 -> H2O [reaction="2H2 + O2 -> 2H2O", stoichiometry=1];
+
+    // Catalyst interaction
+    edge catalysis1: Pt -> H2 [type="activation", lowers_barrier=true];
+    edge catalysis2: Pt -> O2 [type="activation", lowers_barrier=true];
+
+    // Energy states
+    node reactant_state :energy [level=0, stability="metastable"];
+    node transition_state :energy [level=50, stability="unstable"];
+    node product_state :energy [level=-286, stability="stable"];
+
+    // Energy pathway
+    edge: reactant_state -> transition_state [type="activation", energy_required=50];
+    edge: transition_state -> product_state [type="formation", energy_released=336];
+}

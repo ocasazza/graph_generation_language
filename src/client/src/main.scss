@@ -27,7 +27,6 @@ body {
   background-color: transparent;
   color: wheat;
   border: 1px solid wheat;
-  padding: 12px;
   border-radius: 6px;
   font-family: 'Courier New', Courier, monospace;
   cursor: pointer;
@@ -35,7 +34,7 @@ body {
 }
 
 .generate-btn:hover {
-  background-color: rgb(99, 98, 97, 0.5);
+  background-color: rgba(245, 222, 179, 0.3)
 }
 
 .error {
@@ -51,6 +50,8 @@ body {
   text-align: left;
   height: calc(100vh - 280px);
   max-height: calc(100vh - 280px);
+  padding: 12px;
+  background-color: #000000;
 }
 
 .ggl-editor-layout {
@@ -62,10 +63,10 @@ body {
 
 .ggl-editor-panel {
   flex: 1;
-  border: 1px solid wheat;
   border-radius: 6px;
   overflow: hidden;
   margin-right: 6px;
+  background-color: #1e1e1e;
 }
 
 .ggl-monaco-editor {
@@ -77,11 +78,11 @@ body {
 .ggl-output-panel {
   flex: 1;
   overflow: hidden;
-  border: 1px solid wheat;
   border-radius: 6px;
   height: 100%;
   max-height: 100%;
   margin-left: 6px;
+  background-color: #1e1e1e;
 }
 
 .ggl-generate-btn {
@@ -93,12 +94,51 @@ body {
   height: 100%;
   background: #1e1e1e;
   color: wheat;
-  border: 1px solid wheat;
+  border: none;
   border-radius: 6px;
   font-family: 'Courier New', monospace;
   resize: none;
+  outline: none;
 }
 
 .ggl-monaco-fallback.hidden {
   display: none;
+}
+
+/* Example Dropdown Styles */
+.example-dropdown-container {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.example-dropdown-container label {
+  color: wheat;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+}
+
+.example-dropdown-container select {
+  background-color: #1e1e1e;
+  color: wheat;
+  border: 1px solid wheat;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.example-dropdown-container select:focus {
+  outline: none;
+  border-color: #51cf66;
+  box-shadow: 0 0 0 2px rgba(81, 207, 102, 0.2);
+}
+
+.example-dropdown-container select option {
+  background-color: #1e1e1e;
+  color: wheat;
+  padding: 6px;
 }

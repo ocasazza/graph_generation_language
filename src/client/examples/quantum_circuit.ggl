@@ -1,0 +1,33 @@
+graph quantum_circuit {
+    // Qubits
+    node q0 :qubit [state="0", position=0];
+    node q1 :qubit [state="0", position=1];
+    node q2 :qubit [state="0", position=2];
+    node q3 :qubit [state="0", position=3];
+
+    // Quantum gates
+    node H_gate :gate [type="Hadamard", creates_superposition=true];
+    node CNOT_gate :gate [type="CNOT", entangling=true];
+    node X_gate :gate [type="Pauli-X", operation="bit_flip"];
+    node measure :gate [type="measurement", collapses_state=true];
+
+    // Circuit connections - time flows left to right
+    edge: q0 -> H_gate [time=1, operation="apply"];
+    edge: H_gate -> q0 [time=1, result="superposition"];
+
+    edge: q1 -> CNOT_gate [time=2, operation="control"];
+    edge: q0 -> CNOT_gate [time=2, operation="target"];
+    edge: CNOT_gate -> q0 [time=2, result="entangled"];
+    edge: CNOT_gate -> q1 [time=2, result="entangled"];
+
+    edge: q2 -> X_gate [time=3, operation="apply"];
+    edge: X_gate -> q2 [time=3, result="flipped"];
+
+    edge: q3 -> measure [time=4, operation="measure"];
+    edge: measure -> q3 [time=4, result="classical_bit"];
+
+    // Quantum connectivity constraints
+    edge: q0 -- q1 [type="physical_connection", fidelity=0.99];
+    edge: q1 -- q2 [type="physical_connection", fidelity=0.98];
+    edge: q2 -- q3 [type="physical_connection", fidelity=0.97];
+}
