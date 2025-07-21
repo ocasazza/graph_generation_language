@@ -131,7 +131,7 @@ impl WASMGGLEngine {
     /// ```
     #[wasm_bindgen]
     pub fn get_graph_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string(self.inner.graph())
+        serde_json::to_string(&self.inner.graph)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 
@@ -147,7 +147,7 @@ impl WASMGGLEngine {
     /// ```
     #[wasm_bindgen]
     pub fn get_graph_json_pretty(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(self.inner.graph())
+        serde_json::to_string_pretty(&self.inner.graph)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
     }
 }

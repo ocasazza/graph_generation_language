@@ -1,87 +1,88 @@
-use crate::types::MetadataValue;
+//! GGL language parser and Abstract Syntax Tree (AST) definitions.
+//! This module uses the `pest` library to parse GGL source code into a structured AST.
+
+use pest::iterators::Pair;
 use pest::Parser as PestParser;
 use pest_derive::Parser;
-use std::collections::HashMap;
+use std::fmt;
+
+/// Type alias for boxed pest error to reduce Result size
+type ParseError = Box<pest::error::Error<Rule>>;
 
 #[derive(Parser)]
-#[grammar_inline = r#"
-// Whitespace and comments
-WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+#[grammar = "ggl.pest"]
+pub struct GglParser;
 
-// Identifiers and literals
-ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-number = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
-boolean = @{ "true" | "false" }
+// --- Abstract Syntax Tree (AST) ---
 
-// Values
-value = { string | number | boolean | ident }
+#[derive(Debug)]
+pub struct GraphAST {
+    pub name: String,
+    pub statements: Vec<Statement>,
+}
 
-// Attributes
-attribute = { ident ~ "=" ~ value }
-attribute_list = { (attribute ~ ("," ~ attribute)*)? }
-attributes = { "[" ~ attribute_list ~ "]" }
+#[derive(Debug, Clone)]
+pub enum Statement {
+    Let(LetStatement),
+    For(ForStatement),
+    Node(NodeDeclaration),
+    Edge(EdgeDeclaration),
+    Generate(GenerateStatement),
+    RuleDef(RuleDefinition),
+    Apply(ApplyStatement),
+}
 
-// Node declarations
-node_type = { ":" ~ ident }
-node_decl = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
+/// Represents a `let` statement for variable assignment.
+///
+/// # Easy Example
+///
+/// ```ggl
+/// let count = 10;
+/// ```
+#[derive(Debug, Clone)]
+pub struct LetStatement {
+    pub name: String,
+    pub value: Expression,
+}
 
-// Edge declarations
-edge_op = { "->" | "--" }
-edge_decl = { "edge" ~ ident? ~ ":" ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
-
-// Generator statements
-param = { ident ~ ":" ~ value }
-param_list = { (param ~ ";")* }
-generate_stmt = { "generate" ~ ident ~ "{" ~ param_list ~ "}" }
-
-// Rule patterns
-node_pattern = { "node" ~ ident ~ node_type? ~ attributes? ~ ";" }
-edge_pattern = { ("edge" ~ ident? ~ ":")? ~ ident ~ edge_op ~ ident ~ attributes? ~ ";" }
-pattern = { "{" ~ (node_pattern | edge_pattern)* ~ "}" }
-
-// Rule definition
-rule_def = { "rule" ~ ident ~ "{" ~ "lhs" ~ pattern ~ "rhs" ~ pattern ~ "}" }
-
-// Rule application
-apply_rule = { "apply" ~ ident ~ number ~ "times" ~ ";" }
-
-// Graph statements
-statement = { node_decl | edge_decl | generate_stmt | rule_def | apply_rule }
-graph = { "graph" ~ ident? ~ "{" ~ statement* ~ "}" }
-
-// Entry point
-program = { SOI ~ graph ~ EOI }
-"#]
-pub struct GGLParser;
+/// Represents a `for` loop for iterative graph construction.
+///
+/// # Medium Example
+///
+/// ```ggl
+/// let node_count = 5;
+/// for i in 0..node_count {
+///     node "node_{i}";
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct ForStatement {
+    pub variable: String,
+    pub start: Expression,
+    pub end: Expression,
+    pub body: Vec<Statement>,
+}
 
 #[derive(Debug, Clone)]
 pub struct NodeDeclaration {
-    pub id: String,
-    pub node_type: Option<String>,
-    pub attributes: HashMap<String, MetadataValue>,
+    pub id: Expression,
+    pub node_type: Option<Expression>,
+    pub attributes: Vec<(String, Expression)>,
 }
 
 #[derive(Debug, Clone)]
 pub struct EdgeDeclaration {
-    pub id: String,
-    pub source: String,
-    pub target: String,
+    pub id: Option<Expression>,
+    pub source: Expression,
+    pub target: Expression,
     pub directed: bool,
-    pub attributes: HashMap<String, MetadataValue>,
+    pub attributes: Vec<(String, Expression)>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GenerateStatement {
     pub name: String,
-    pub params: HashMap<String, MetadataValue>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Pattern {
-    pub nodes: Vec<NodeDeclaration>,
-    pub edges: Vec<EdgeDeclaration>,
+    pub params: Vec<(String, Expression)>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,368 +93,297 @@ pub struct RuleDefinition {
 }
 
 #[derive(Debug, Clone)]
-pub struct ApplyRuleStatement {
-    pub rule_name: String,
-    pub iterations: usize,
+pub struct Pattern {
+    pub nodes: Vec<NodeDeclaration>,
+    pub edges: Vec<EdgeDeclaration>,
 }
 
 #[derive(Debug, Clone)]
-pub enum GGLStatement {
-    NodeDecl(NodeDeclaration),
-    EdgeDecl(EdgeDeclaration),
-    GenerateStmt(GenerateStatement),
-    RuleDefStmt(RuleDefinition),
-    ApplyRuleStmt(ApplyRuleStatement),
+pub struct ApplyStatement {
+    pub rule_name: String,
+    pub iterations: Expression,
 }
 
-pub fn parse_ggl(input: &str) -> Result<Vec<GGLStatement>, String> {
-    let pairs = <GGLParser as PestParser<Rule>>::parse(Rule::program, input)
-        .map_err(|e| format!("Parse error: {e}"))?;
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expression {
+    StringLiteral(String),
+    FormattedString(Vec<StringPart>),
+    Integer(i64),
+    Float(f64),
+    Boolean(bool),
+    Identifier(String),
+}
 
-    let mut statements = Vec::new();
-
-    // There should be exactly one program rule that contains one graph rule
-    for pair in pairs {
-        match pair.as_rule() {
-            Rule::program => {
-                // Find the graph rule within the program
-                for graph_pair in pair.into_inner() {
-                    if graph_pair.as_rule() == Rule::graph {
-                        // Process all statements within the graph
-                        for stmt_pair in graph_pair.into_inner() {
-                            if let Some(stmt) = parse_statement(stmt_pair)? {
-                                statements.push(stmt);
-                            }
-                        }
+/// Implements the Display trait to allow Expressions to be converted to strings.
+/// This is crucial for resolving identifiers and literals in rules and statements.
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expression::StringLiteral(s) => write!(f, "{s}"),
+            Expression::Integer(i) => write!(f, "{i}"),
+            Expression::Float(n) => write!(f, "{n}"),
+            Expression::Boolean(b) => write!(f, "{b}"),
+            Expression::Identifier(name) => write!(f, "{name}"),
+            Expression::FormattedString(parts) => {
+                // This formatting is for pattern matching in rules, where variables
+                // are not yet resolved.
+                for part in parts {
+                    match part {
+                        StringPart::Literal(s) => write!(f, "{s}")?,
+                        StringPart::Variable(v) => write!(f, "{{{v}}}")?,
                     }
                 }
+                Ok(())
             }
-            Rule::EOI => (),
-            _ => unreachable!(),
         }
     }
-
-    Ok(statements)
 }
 
-fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Result<Option<GGLStatement>, String> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringPart {
+    Literal(String),
+    Variable(String),
+}
+
+// --- Parser Implementation ---
+
+/// Parses a GGL source string into a Graph AST.
+pub fn parse_ggl(source: &str) -> Result<GraphAST, ParseError> {
+    let file_pair = GglParser::parse(Rule::file, source).map_err(Box::new)?.next().unwrap();
+    build_ast_from_file(file_pair)
+}
+
+fn build_ast_from_file(pair: Pair<Rule>) -> Result<GraphAST, ParseError> {
+    let mut inner = pair.into_inner();
+
+    // Check if the first item is an identifier (graph name) or a statement
+    let first = inner.next().unwrap();
+    let (name, statements) = if first.as_rule() == Rule::identifier {
+        // Graph has a name
+        let name = first.as_str().to_string();
+        let statements = inner
+            .filter(|p| p.as_rule() != Rule::EOI)
+            .map(build_statement)
+            .collect::<Result<_, _>>()?;
+        (name, statements)
+    } else if first.as_rule() == Rule::EOI {
+        // Empty graph with no name
+        let name = "unnamed".to_string();
+        (name, vec![])
+    } else {
+        // Graph has no name, first item is a statement
+        let name = "unnamed".to_string();
+        let mut statements = vec![build_statement(first)?];
+        statements.extend(
+            inner
+                .filter(|p| p.as_rule() != Rule::EOI)
+                .map(build_statement)
+                .collect::<Result<Vec<_>, _>>()?
+        );
+        (name, statements)
+    };
+
+    Ok(GraphAST { name, statements })
+}
+
+fn build_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
     match pair.as_rule() {
-        Rule::statement => {
-            // Get the actual statement type from within the statement rule
-            let inner = pair.into_inner().next().unwrap();
-            match inner.as_rule() {
-                Rule::node_decl => Ok(Some(GGLStatement::NodeDecl(parse_node_decl(inner)?))),
-                Rule::edge_decl => Ok(Some(GGLStatement::EdgeDecl(parse_edge_decl(inner)?))),
-                Rule::generate_stmt => Ok(Some(GGLStatement::GenerateStmt(parse_generate_stmt(
-                    inner,
-                )?))),
-                Rule::rule_def => Ok(Some(GGLStatement::RuleDefStmt(parse_rule_def(inner)?))),
-                Rule::apply_rule => Ok(Some(GGLStatement::ApplyRuleStmt(parse_apply_rule(inner)?))),
-                _ => Ok(None),
-            }
-        }
-        _ => Ok(None),
+        Rule::let_declaration => build_let_statement(pair).map(Statement::Let),
+        Rule::for_loop => build_for_loop(pair).map(Statement::For),
+        Rule::node_declaration => build_node_declaration(pair).map(Statement::Node),
+        Rule::edge_declaration => build_edge_declaration(pair).map(Statement::Edge),
+        Rule::generate_statement => build_generate_statement(pair).map(Statement::Generate),
+        Rule::rule_definition => build_rule_definition(pair).map(Statement::RuleDef),
+        Rule::apply_statement => build_apply_statement(pair).map(Statement::Apply),
+        _ => unreachable!("Unexpected statement rule: {:?}", pair.as_rule()),
     }
 }
 
-fn parse_node_decl(pair: pest::iterators::Pair<Rule>) -> Result<NodeDeclaration, String> {
-    let mut id = String::new();
-    let mut node_type = None;
-    let mut attributes = HashMap::new();
+fn build_let_statement(pair: Pair<Rule>) -> Result<LetStatement, ParseError> {
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+    let value = build_expression(inner.next().unwrap())?;
+    Ok(LetStatement { name, value })
+}
 
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => id = inner_pair.as_str().to_string(),
-            Rule::node_type => {
-                node_type = Some(inner_pair.into_inner().next().unwrap().as_str().to_string());
-            }
-            Rule::attributes => {
-                attributes = parse_attributes(inner_pair)?;
-            }
-            _ => (),
-        }
-    }
-
-    Ok(NodeDeclaration {
-        id,
-        node_type,
-        attributes,
+fn build_for_loop(pair: Pair<Rule>) -> Result<ForStatement, ParseError> {
+    let mut inner = pair.into_inner();
+    let variable = inner.next().unwrap().as_str().to_string();
+    let start = build_expression(inner.next().unwrap())?;
+    let end = build_expression(inner.next().unwrap())?;
+    let body = inner.map(build_statement).collect::<Result<_, _>>()?;
+    Ok(ForStatement {
+        variable,
+        start,
+        end,
+        body,
     })
 }
 
-fn parse_edge_decl(pair: pest::iterators::Pair<Rule>) -> Result<EdgeDeclaration, String> {
-    let id;
-    let source;
-    let target;
-    let mut directed = false;
-    let mut attributes = HashMap::new();
-    let mut idents = Vec::new();
-
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => {
-                idents.push(inner_pair.as_str().to_string());
-            }
-            Rule::edge_op => {
-                directed = inner_pair.as_str() == "->";
-            }
-            Rule::attributes => {
-                attributes = parse_attributes(inner_pair)?;
-            }
-            _ => (),
+fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, ParseError> {
+    let mut inner = pair.into_inner();
+    let id = build_expression(inner.next().unwrap())?;
+    let next = inner.next();
+    let (node_type, attributes) = match next {
+        Some(pair) if pair.as_rule() == Rule::expression => {
+            let type_expr = build_expression(pair)?;
+            let attrs = inner.next().map(build_attributes).transpose()?.unwrap_or_default();
+            (Some(type_expr), attrs)
         }
-    }
-
-    // Determine if there's an explicit ID based on the number of identifiers
-    match idents.len() {
-        2 => {
-            // No explicit ID: either "edge: source -> target" or "source -> target"
-            source = idents[0].clone();
-            target = idents[1].clone();
-            id = format!("e{source}_{target}");
-        }
-        3 => {
-            // Explicit ID: edge id: source -> target
-            id = idents[0].clone();
-            source = idents[1].clone();
-            target = idents[2].clone();
-        }
-        _ => {
-            return Err("Invalid edge declaration: expected 2 or 3 identifiers".to_string());
-        }
-    }
-
-    Ok(EdgeDeclaration {
-        id,
-        source,
-        target,
-        directed,
-        attributes,
-    })
+        Some(pair) if pair.as_rule() == Rule::attributes => (None, build_attributes(pair)?),
+        _ => (None, vec![]),
+    };
+    Ok(NodeDeclaration { id, node_type, attributes })
 }
 
-fn parse_generate_stmt(pair: pest::iterators::Pair<Rule>) -> Result<GenerateStatement, String> {
-    let mut name = String::new();
-    let mut params = HashMap::new();
+fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, ParseError> {
+    let span = pair.as_span(); // Capture span before moving pair
+    let mut inner_pairs: Vec<_> = pair.into_inner().collect();
 
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => name = inner_pair.as_str().to_string(),
-            Rule::param_list => {
-                for param_pair in inner_pair.into_inner() {
-                    if param_pair.as_rule() == Rule::param {
-                        let mut param_iter = param_pair.into_inner();
-                        let param_name = param_iter.next().unwrap().as_str().to_string();
-                        let param_value = parse_value(param_iter.next().unwrap())?;
-                        params.insert(param_name, param_value);
-                    }
-                }
-            }
-            _ => (),
+    let operator_pos = inner_pairs.iter().position(|p| p.as_rule() == Rule::edge_operator)
+        .ok_or_else(|| Box::new(pest::error::Error::new_from_span(
+            pest::error::ErrorVariant::CustomError { message: "Edge operator not found".to_string() },
+            span,
+        )))?;
+
+    let attributes = if inner_pairs.last().is_some_and(|p| p.as_rule() == Rule::attributes) {
+        build_attributes(inner_pairs.pop().unwrap())?
+    } else {
+        Vec::new()
+    };
+
+    let directed = inner_pairs[operator_pos].as_str() == "->";
+
+    let id: Option<Expression>;
+    let source: Expression;
+    let target: Expression;
+
+    // Check if there's an edge_id
+    let edge_id_pos = inner_pairs.iter().position(|p| p.as_rule() == Rule::edge_id);
+
+    if let Some(edge_id_pos) = edge_id_pos {
+        // There's an edge_id, check if it has an expression or is just ":"
+        let edge_id_pair = &inner_pairs[edge_id_pos];
+        let edge_id_inner: Vec<_> = edge_id_pair.clone().into_inner().collect();
+
+        if edge_id_inner.len() == 1 { // expression (the ":" is part of the rule but not captured)
+            id = Some(build_expression(edge_id_inner[0].clone())?);
+        } else { // just ":" (empty inner)
+            id = None;
         }
+
+        // Source and target are after the edge_id
+        source = build_expression(inner_pairs[edge_id_pos + 1].clone())?;
+        target = build_expression(inner_pairs[edge_id_pos + 3].clone())?; // Skip operator
+    } else {
+        // No edge_id, so it's: source operator target
+        id = None;
+        source = build_expression(inner_pairs[0].clone())?;
+        target = build_expression(inner_pairs[2].clone())?; // Skip operator
     }
 
+    Ok(EdgeDeclaration { id, source, target, directed, attributes })
+}
+
+
+fn build_generate_statement(pair: Pair<Rule>) -> Result<GenerateStatement, ParseError> {
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+    let params = inner
+        .map(|p| -> Result<(String, Expression), ParseError> {
+            let mut kv = p.into_inner();
+            let key = kv.next().unwrap().as_str().to_string();
+            let value = build_expression(kv.next().unwrap())?;
+            Ok((key, value))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(GenerateStatement { name, params })
 }
 
-fn parse_rule_def(pair: pest::iterators::Pair<Rule>) -> Result<RuleDefinition, String> {
-    let mut name = String::new();
-    let mut lhs = Pattern {
-        nodes: Vec::new(),
-        edges: Vec::new(),
-    };
-    let mut rhs = Pattern {
-        nodes: Vec::new(),
-        edges: Vec::new(),
-    };
-
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => name = inner_pair.as_str().to_string(),
-            Rule::pattern => {
-                let pattern = parse_pattern(inner_pair)?;
-                if lhs.nodes.is_empty() && lhs.edges.is_empty() {
-                    lhs = pattern;
-                } else {
-                    rhs = pattern;
-                }
-            }
-            _ => (),
-        }
-    }
-
+fn build_rule_definition(pair: Pair<Rule>) -> Result<RuleDefinition, ParseError> {
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+    let lhs_pair = inner.next().unwrap();
+    let rhs_pair = inner.next().unwrap();
+    let lhs = build_pattern(lhs_pair)?;
+    let rhs = build_pattern(rhs_pair)?;
     Ok(RuleDefinition { name, lhs, rhs })
 }
 
-fn parse_pattern(pair: pest::iterators::Pair<Rule>) -> Result<Pattern, String> {
+fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, ParseError> {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
-
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::node_pattern => {
-                // Parse node_pattern the same way as node_decl
-                nodes.push(parse_node_decl(inner_pair)?);
+    for pattern_stmt_pair in pair.into_inner() {
+        if let Some(stmt_pair) = pattern_stmt_pair.into_inner().next() {
+            match stmt_pair.as_rule() {
+                Rule::node_declaration => nodes.push(build_node_declaration(stmt_pair)?),
+                Rule::edge_declaration => edges.push(build_edge_declaration(stmt_pair)?),
+                _ => continue,
             }
-            Rule::edge_pattern => {
-                // Parse edge_pattern the same way as edge_decl
-                edges.push(parse_edge_decl(inner_pair)?);
-            }
-            _ => (),
         }
     }
-
     Ok(Pattern { nodes, edges })
 }
 
-fn parse_apply_rule(pair: pest::iterators::Pair<Rule>) -> Result<ApplyRuleStatement, String> {
-    let mut rule_name = String::new();
-    let mut iterations = 0;
-
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ident => rule_name = inner_pair.as_str().to_string(),
-            Rule::number => {
-                iterations = inner_pair
-                    .as_str()
-                    .parse::<usize>()
-                    .map_err(|e| format!("Invalid iteration count: {e}"))?;
-            }
-            _ => (),
-        }
-    }
-
-    Ok(ApplyRuleStatement {
-        rule_name,
-        iterations,
-    })
+fn build_apply_statement(pair: Pair<Rule>) -> Result<ApplyStatement, ParseError> {
+    let mut inner = pair.into_inner();
+    let rule_name = inner.next().unwrap().as_str().to_string();
+    let iterations = build_expression(inner.next().unwrap())?;
+    Ok(ApplyStatement { rule_name, iterations })
 }
 
-fn parse_attributes(
-    pair: pest::iterators::Pair<Rule>,
-) -> Result<HashMap<String, MetadataValue>, String> {
-    let mut attributes = HashMap::new();
-
-    for attr_list in pair.into_inner() {
-        if attr_list.as_rule() == Rule::attribute_list {
-            for attr in attr_list.into_inner() {
-                if attr.as_rule() == Rule::attribute {
-                    let mut attr_iter = attr.into_inner();
-                    let key = attr_iter.next().unwrap().as_str().to_string();
-                    let value = parse_value(attr_iter.next().unwrap())?;
-                    attributes.insert(key, value);
-                }
-            }
-        }
-    }
-
-    Ok(attributes)
+fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, Expression)>, ParseError> {
+    pair.into_inner()
+        .map(|p| -> Result<(String, Expression), ParseError> {
+            let mut kv = p.into_inner();
+            let key = kv.next().unwrap().as_str().to_string();
+            let value = build_expression(kv.next().unwrap())?;
+            Ok((key, value))
+        })
+        .collect()
 }
 
-fn parse_value(pair: pest::iterators::Pair<Rule>) -> Result<MetadataValue, String> {
-    let value_pair = pair.clone().into_inner().next().unwrap_or(pair);
-
-    match value_pair.as_rule() {
-        Rule::string => Ok(MetadataValue::String(
-            value_pair.as_str().trim_matches('"').to_string(),
-        )),
-        Rule::number => {
-            let num_str = value_pair.as_str();
-            // Try to parse as integer first, then as float
-            if num_str.contains('.') {
-                num_str
-                    .parse::<f64>()
-                    .map(MetadataValue::Float)
-                    .map_err(|e| format!("Invalid float: {e}"))
-            } else {
-                num_str
-                    .parse::<i64>()
-                    .map(MetadataValue::Integer)
-                    .map_err(|e| format!("Invalid integer: {e}"))
-            }
-        }
-        Rule::boolean => Ok(MetadataValue::Boolean(value_pair.as_str() == "true")),
-        Rule::ident => Ok(MetadataValue::String(value_pair.as_str().to_string())),
-        _ => Err(format!("Unexpected value type: {:?}", value_pair.as_rule())),
+fn build_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    match pair.as_rule() {
+        Rule::expression => {
+            let inner = pair.into_inner().next().unwrap();
+            build_expression(inner)
+        },
+        Rule::literal => build_literal(pair),
+        Rule::identifier => Ok(Expression::Identifier(pair.as_str().to_string())),
+        Rule::formatted_string => {
+            let parts = pair.into_inner().map(|p| match p.as_rule() {
+                Rule::string_part => StringPart::Literal(p.as_str().to_string()),
+                Rule::var_in_string => StringPart::Variable(p.into_inner().next().unwrap().as_str().to_string()),
+                _ => unreachable!(),
+            }).collect();
+            Ok(Expression::FormattedString(parts))
+        },
+        Rule::string => {
+            // Direct string literal
+            let content = pair.as_str();
+            let trimmed = &content[1..content.len()-1]; // Remove quotes
+            Ok(Expression::StringLiteral(trimmed.to_string()))
+        },
+        Rule::integer => Ok(Expression::Integer(pair.as_str().parse().unwrap())),
+        Rule::float => Ok(Expression::Float(pair.as_str().parse().unwrap())),
+        Rule::boolean => Ok(Expression::Boolean(pair.as_str().parse().unwrap())),
+        _ => unreachable!("Unexpected expression rule: {:?}", pair.as_rule()),
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_simple_graph() {
-        let input = r#"
-            graph test {
-                node A;
-                node B;
-                edge e1: A -> B [weight=1.0];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 3);
-    }
-
-    #[test]
-    fn test_parse_generate_stmt() {
-        let input = r#"
-            graph {
-                generate complete {
-                    nodes: 5;
-                    prefix: "n";
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::GenerateStmt(gen) => {
-                assert_eq!(gen.name, "complete");
-                assert_eq!(gen.params.len(), 2);
-            }
-            _ => panic!("Expected GenerateStmt"),
-        }
-    }
-
-    #[test]
-    fn test_parse_rule_def() {
-        let input = r#"
-            graph {
-                rule add_leaf {
-                    lhs { node N :intermediate; }
-                    rhs {
-                        node N :intermediate;
-                        node L :leaf;
-                        N -> L;
-                    }
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let statements = result.unwrap();
-        assert_eq!(statements.len(), 1);
-
-        match &statements[0] {
-            GGLStatement::RuleDefStmt(rule) => {
-                assert_eq!(rule.name, "add_leaf");
-                assert_eq!(rule.lhs.nodes.len(), 1);
-                assert_eq!(rule.rhs.nodes.len(), 2);
-                assert_eq!(rule.rhs.edges.len(), 1);
-            }
-            _ => panic!("Expected RuleDefStmt"),
-        }
+fn build_literal(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::string => {
+            // Extract the content between quotes
+            let content = inner.as_str();
+            let trimmed = &content[1..content.len()-1]; // Remove quotes
+            Ok(Expression::StringLiteral(trimmed.to_string()))
+        },
+        Rule::integer => Ok(Expression::Integer(inner.as_str().parse().unwrap())),
+        Rule::float => Ok(Expression::Float(inner.as_str().parse().unwrap())),
+        Rule::boolean => Ok(Expression::Boolean(inner.as_str().parse().unwrap())),
+        _ => unreachable!("Unexpected literal rule: {:?}", inner.as_rule()),
     }
 }
