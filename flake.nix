@@ -101,6 +101,7 @@
         # that uses the ggl library
         # -----------------------------
         graphGenerationLanguageCli = craneLib.buildPackage (
+          pname = "ggl_cli";
           nativeArgs
           // {
             inherit cargoArtifacts;

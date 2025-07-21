@@ -1,8 +1,9 @@
 # Release configuration for ggl
-
 [workspace]
 allow_dirty = true # allow updating repositories with uncommitted changes
 features_always_increment_minor = true
+pr_branch_prefix = "ggl_release" # PR branch prefix
+dependencies_update = true # update dependencies with `cargo update`
 
 [[package]]
 name = "graph_generation_language"
