@@ -9,6 +9,7 @@ jobs:
   clear-cache:
     if: ${{  github.base_ref == 'main' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Clear cache
         uses: actions/github-script@v6
