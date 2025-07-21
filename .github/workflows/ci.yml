@@ -16,7 +16,7 @@ jobs:
           # - ubuntu-22.04
           # - ubuntu-22.04-arm
           # - ubuntu-24.04-arm
-          # - macos-latest
+          - macos-latest
           # - macos-14
           # - macos-15
           # - macos-13
@@ -51,7 +51,7 @@ jobs:
   # Create release PR with version updates and changelog
   release-pr:
     needs: omnix
-    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' }}
+    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/dev' && github.base_ref == 'main' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -78,7 +78,7 @@ jobs:
   # Release unpublished packages
   release:
     needs: omnix
-    if: ${{ needs.omnix.result == 'success' && github.event_name != 'pull_request' }}
+    if: ${{ needs.omnix.result == 'success' && github.base_ref == 'main' }}
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release-plz.outputs.releases_created }}
@@ -139,9 +139,8 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   pages:
-    needs: omnix
-    # needs: release
-    # if: ${{ needs.release.outputs.releases_created == 'true' }}
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' }}
     permissions:
       pages: write
       id-token: write
