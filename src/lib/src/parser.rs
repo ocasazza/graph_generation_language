@@ -32,12 +32,29 @@ pub enum Statement {
     Apply(ApplyStatement),
 }
 
+/// Represents a `let` statement for variable assignment.
+///
+/// # Easy Example
+///
+/// ```ggl
+/// let count = 10;
+/// ```
 #[derive(Debug, Clone)]
 pub struct LetStatement {
     pub name: String,
     pub value: Expression,
 }
 
+/// Represents a `for` loop for iterative graph construction.
+///
+/// # Medium Example
+///
+/// ```ggl
+/// let node_count = 5;
+/// for i in 0..node_count {
+///     node "node_{i}";
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ForStatement {
     pub variable: String,

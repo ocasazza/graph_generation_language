@@ -150,11 +150,46 @@ pub fn generate_cycle(params: &HashMap<String, Value>) -> Result<Graph, String> 
 }
 
 /// Generates a 2D grid graph.
+///
 /// # Parameters
 /// * `rows` (int, required): Number of rows in the grid.
 /// * `cols` (int, required): Number of columns in the grid.
 /// * `prefix` (string, optional): Prefix for node IDs. Default: "n".
 /// * `periodic` (bool, optional): If true, wraps edges around (torus). Default: false.
+///
+/// # Hard Example: Torus
+///
+/// This example generates a 2D torus by creating a grid of nodes and connecting them with wrap-around edges.
+///
+/// ```ggl
+/// graph toroidal_mesh {
+///     let rows = 10;
+///     let cols = 10;
+///
+///     // Create the nodes
+///     for i in 0..rows {
+///         for j in 0..cols {
+///             node n{i}_{j};
+///         }
+///     }
+///
+///     // Create the horizontal edges
+///     for i in 0..rows {
+///         for j in 0..cols {
+///             let next_j = (j + 1) % cols;
+///             edge: n{i}_{j} -> n{i}_{next_j};
+///         }
+///     }
+///
+///     // Create the vertical edges
+///     for i in 0..rows {
+///         for j in 0..cols {
+///             let next_i = (i + 1) % rows;
+///             edge: n{i}_{j} -> n{next_i}_{j};
+///         }
+///     }
+/// }
+/// ```
 pub fn generate_grid(params: &HashMap<String, Value>) -> Result<Graph, String> {
     let rows = get_param_int(params, "rows")?;
     let cols = get_param_int(params, "cols")?;

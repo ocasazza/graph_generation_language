@@ -50,6 +50,42 @@
 //! * **Rich Attributes**: Support for typed nodes and edges with metadata.
 //! * **JSON Output**: Export graphs in standard JSON format.
 //!
+//! ## More Examples
+//!
+//! ### Torus
+//!
+//! This example generates a 2D torus by creating a grid of nodes and connecting them with wrap-around edges.
+//!
+//! ```ggl
+//! graph toroidal_mesh {
+//!     let rows = 10;
+//!     let cols = 10;
+//!
+//!     // Create the nodes
+//!     for i in 0..rows {
+//!         for j in 0..cols {
+//!             node n{i}_{j};
+//!         }
+//!     }
+//!
+//!     // Create the horizontal edges
+//!     for i in 0..rows {
+//!         for j in 0..cols {
+//!             let next_j = (j + 1) % cols;
+//!             edge: n{i}_{j} -> n{i}_{next_j};
+//!         }
+//!     }
+//!
+//!     // Create the vertical edges
+//!     for i in 0..rows {
+//!         for j in 0..cols {
+//!             let next_i = (i + 1) % rows;
+//!             edge: n{i}_{j} -> n{next_i}_{j};
+//!         }
+//!     }
+//! }
+//! ```
+//!
 //! ## Getting Started
 //!
 //! ### Installation
