@@ -281,6 +281,11 @@ impl GGLEngine {
         Ok(())
     }
 
+    /// Returns a reference to the current graph.
+    pub fn get_graph(&self) -> &Graph {
+        &self.graph
+    }
+
     /// Evaluates an expression by resolving variables or interpreting literals.
     fn evaluate_expression(&self, expr: &Expression) -> Result<Value, String> {
         match expr {
