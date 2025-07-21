@@ -87,7 +87,7 @@
 
         # ---------------------------------
         # build the library / ggl rust crate
-        # that can be published to src.io
+        # that can be published to crates.io
         # ---------------------------------
         graphGenerationLanguage = craneLib.buildPackage (
           nativeArgs
@@ -101,9 +101,9 @@
         # that uses the ggl library
         # -----------------------------
         graphGenerationLanguageCli = craneLib.buildPackage (
-          pname = "ggl_cli";
           nativeArgs
           // {
+            pname = "ggl_cli";
             inherit cargoArtifacts;
           }
         );
