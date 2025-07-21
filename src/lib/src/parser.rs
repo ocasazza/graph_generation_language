@@ -6,6 +6,9 @@ use pest::Parser as PestParser;
 use pest_derive::Parser;
 use std::fmt;
 
+/// Type alias for boxed pest error to reduce Result size
+type ParseError = Box<pest::error::Error<Rule>>;
+
 #[derive(Parser)]
 #[grammar = "ggl.pest"]
 pub struct GglParser;
@@ -128,12 +131,12 @@ pub enum StringPart {
 // --- Parser Implementation ---
 
 /// Parses a GGL source string into a Graph AST.
-pub fn parse_ggl(source: &str) -> Result<GraphAST, pest::error::Error<Rule>> {
-    let file_pair = GglParser::parse(Rule::file, source)?.next().unwrap();
+pub fn parse_ggl(source: &str) -> Result<GraphAST, ParseError> {
+    let file_pair = GglParser::parse(Rule::file, source).map_err(Box::new)?.next().unwrap();
     build_ast_from_file(file_pair)
 }
 
-fn build_ast_from_file(pair: Pair<Rule>) -> Result<GraphAST, pest::error::Error<Rule>> {
+fn build_ast_from_file(pair: Pair<Rule>) -> Result<GraphAST, ParseError> {
     let mut inner = pair.into_inner();
 
     // Check if the first item is an identifier (graph name) or a statement
@@ -166,7 +169,7 @@ fn build_ast_from_file(pair: Pair<Rule>) -> Result<GraphAST, pest::error::Error<
     Ok(GraphAST { name, statements })
 }
 
-fn build_statement(pair: Pair<Rule>) -> Result<Statement, pest::error::Error<Rule>> {
+fn build_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
     match pair.as_rule() {
         Rule::let_declaration => build_let_statement(pair).map(Statement::Let),
         Rule::for_loop => build_for_loop(pair).map(Statement::For),
@@ -179,14 +182,14 @@ fn build_statement(pair: Pair<Rule>) -> Result<Statement, pest::error::Error<Rul
     }
 }
 
-fn build_let_statement(pair: Pair<Rule>) -> Result<LetStatement, pest::error::Error<Rule>> {
+fn build_let_statement(pair: Pair<Rule>) -> Result<LetStatement, ParseError> {
     let mut inner = pair.into_inner();
     let name = inner.next().unwrap().as_str().to_string();
     let value = build_expression(inner.next().unwrap())?;
     Ok(LetStatement { name, value })
 }
 
-fn build_for_loop(pair: Pair<Rule>) -> Result<ForStatement, pest::error::Error<Rule>> {
+fn build_for_loop(pair: Pair<Rule>) -> Result<ForStatement, ParseError> {
     let mut inner = pair.into_inner();
     let variable = inner.next().unwrap().as_str().to_string();
     let start = build_expression(inner.next().unwrap())?;
@@ -200,7 +203,7 @@ fn build_for_loop(pair: Pair<Rule>) -> Result<ForStatement, pest::error::Error<R
     })
 }
 
-fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, pest::error::Error<Rule>> {
+fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, ParseError> {
     let mut inner = pair.into_inner();
     let id = build_expression(inner.next().unwrap())?;
     let next = inner.next();
@@ -216,15 +219,15 @@ fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, pest::err
     Ok(NodeDeclaration { id, node_type, attributes })
 }
 
-fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, pest::error::Error<Rule>> {
+fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, ParseError> {
     let span = pair.as_span(); // Capture span before moving pair
     let mut inner_pairs: Vec<_> = pair.into_inner().collect();
 
     let operator_pos = inner_pairs.iter().position(|p| p.as_rule() == Rule::edge_operator)
-        .ok_or_else(|| pest::error::Error::new_from_span(
+        .ok_or_else(|| Box::new(pest::error::Error::new_from_span(
             pest::error::ErrorVariant::CustomError { message: "Edge operator not found".to_string() },
             span,
-        ))?;
+        )))?;
 
     let attributes = if inner_pairs.last().is_some_and(|p| p.as_rule() == Rule::attributes) {
         build_attributes(inner_pairs.pop().unwrap())?
@@ -246,9 +249,9 @@ fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, pest::err
         let edge_id_pair = &inner_pairs[edge_id_pos];
         let edge_id_inner: Vec<_> = edge_id_pair.clone().into_inner().collect();
 
-        if edge_id_inner.len() == 2 { // expression + ":"
+        if edge_id_inner.len() == 1 { // expression (the ":" is part of the rule but not captured)
             id = Some(build_expression(edge_id_inner[0].clone())?);
-        } else { // just ":"
+        } else { // just ":" (empty inner)
             id = None;
         }
 
@@ -266,52 +269,55 @@ fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, pest::err
 }
 
 
-fn build_generate_statement(pair: Pair<Rule>) -> Result<GenerateStatement, pest::error::Error<Rule>> {
+fn build_generate_statement(pair: Pair<Rule>) -> Result<GenerateStatement, ParseError> {
     let mut inner = pair.into_inner();
     let name = inner.next().unwrap().as_str().to_string();
     let params = inner
-        .map(|p| {
+        .map(|p| -> Result<(String, Expression), ParseError> {
             let mut kv = p.into_inner();
             let key = kv.next().unwrap().as_str().to_string();
             let value = build_expression(kv.next().unwrap())?;
             Ok((key, value))
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(GenerateStatement { name, params })
 }
 
-fn build_rule_definition(pair: Pair<Rule>) -> Result<RuleDefinition, pest::error::Error<Rule>> {
+fn build_rule_definition(pair: Pair<Rule>) -> Result<RuleDefinition, ParseError> {
     let mut inner = pair.into_inner();
     let name = inner.next().unwrap().as_str().to_string();
-    let lhs = build_pattern(inner.next().unwrap())?;
-    let rhs = build_pattern(inner.next().unwrap())?;
+    let lhs_pair = inner.next().unwrap();
+    let rhs_pair = inner.next().unwrap();
+    let lhs = build_pattern(lhs_pair)?;
+    let rhs = build_pattern(rhs_pair)?;
     Ok(RuleDefinition { name, lhs, rhs })
 }
 
-fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, pest::error::Error<Rule>> {
+fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, ParseError> {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
-    for stmt_pair in pair.into_inner() {
-        let inner = stmt_pair.into_inner().next().unwrap();
-        match inner.as_rule() {
-            Rule::node_declaration => nodes.push(build_node_declaration(inner)?),
-            Rule::edge_declaration => edges.push(build_edge_declaration(inner)?),
-            _ => continue,
+    for pattern_stmt_pair in pair.into_inner() {
+        if let Some(stmt_pair) = pattern_stmt_pair.into_inner().next() {
+            match stmt_pair.as_rule() {
+                Rule::node_declaration => nodes.push(build_node_declaration(stmt_pair)?),
+                Rule::edge_declaration => edges.push(build_edge_declaration(stmt_pair)?),
+                _ => continue,
+            }
         }
     }
     Ok(Pattern { nodes, edges })
 }
 
-fn build_apply_statement(pair: Pair<Rule>) -> Result<ApplyStatement, pest::error::Error<Rule>> {
+fn build_apply_statement(pair: Pair<Rule>) -> Result<ApplyStatement, ParseError> {
     let mut inner = pair.into_inner();
     let rule_name = inner.next().unwrap().as_str().to_string();
     let iterations = build_expression(inner.next().unwrap())?;
     Ok(ApplyStatement { rule_name, iterations })
 }
 
-fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, Expression)>, pest::error::Error<Rule>> {
+fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, Expression)>, ParseError> {
     pair.into_inner()
-        .map(|p| {
+        .map(|p| -> Result<(String, Expression), ParseError> {
             let mut kv = p.into_inner();
             let key = kv.next().unwrap().as_str().to_string();
             let value = build_expression(kv.next().unwrap())?;
@@ -320,7 +326,7 @@ fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, Expression)>, pest:
         .collect()
 }
 
-fn build_expression(pair: Pair<Rule>) -> Result<Expression, pest::error::Error<Rule>> {
+fn build_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
     match pair.as_rule() {
         Rule::expression => {
             let inner = pair.into_inner().next().unwrap();
@@ -349,7 +355,7 @@ fn build_expression(pair: Pair<Rule>) -> Result<Expression, pest::error::Error<R
     }
 }
 
-fn build_literal(pair: Pair<Rule>) -> Result<Expression, pest::error::Error<Rule>> {
+fn build_literal(pair: Pair<Rule>) -> Result<Expression, ParseError> {
     let inner = pair.into_inner().next().unwrap();
     match inner.as_rule() {
         Rule::string => {

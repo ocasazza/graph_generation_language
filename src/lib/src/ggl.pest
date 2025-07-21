@@ -27,10 +27,12 @@ edge_operator = { "->" | "--" }
 generate_statement = { "generate" ~ identifier ~ "{" ~ generator_param* ~ "}" }
 generator_param = { identifier ~ ":" ~ expression ~ ";" }
 
-rule_definition = { "rule" ~ identifier ~ "{" ~ "lhs" ~ "{" ~ pattern_statement* ~ "}" ~ "rhs" ~ "{" ~ pattern_statement* ~ "}" ~ "}" }
-pattern_statement = _{ node_declaration | edge_declaration }
+rule_definition = { "rule" ~ identifier ~ "{" ~ lhs ~ rhs ~ "}" }
+lhs = { "lhs" ~ "{" ~ pattern_statement* ~ "}" }
+rhs = { "rhs" ~ "{" ~ pattern_statement* ~ "}" }
+pattern_statement = { node_declaration | edge_declaration }
 
-apply_statement = { "apply" ~ identifier ~ "times" ~ expression ~ ";" }
+apply_statement = { "apply" ~ identifier ~ expression ~ "times" ~ ";" }
 
 // --- Components ---
 attributes = { "[" ~ (attribute_pair ~ ("," ~ attribute_pair)*)? ~ "]" }

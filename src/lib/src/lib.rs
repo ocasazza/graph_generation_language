@@ -78,16 +78,17 @@ use crate::parser::{
     NodeDeclaration, RuleDefinition, Statement,
 };
 use crate::parser::parse_ggl;
-use crate::types::{Edge, Graph, MetadataValue, Node};
+use crate::types::{Edge, Graph, Node};
+use serde_json::Value;
 
 /// The main GGL engine for parsing and executing GGL programs.
 ///
 /// `GGLEngine` maintains the state of a graph, transformation rules, and an execution context for variables.
 /// It interprets GGL code to build complex graph structures.
 pub struct GGLEngine {
-    graph: Graph,
+    pub graph: Graph,
     rules: HashMap<String, rules::Rule>,
-    context: HashMap<String, MetadataValue>,
+    context: HashMap<String, Value>,
 }
 
 impl Default for GGLEngine {
@@ -151,12 +152,12 @@ impl GGLEngine {
     }
 
     fn handle_for(&mut self, stmt: &ForStatement) -> Result<(), String> {
-        let start = self.evaluate_expression(&stmt.start)?.as_int()? as isize;
-        let end = self.evaluate_expression(&stmt.end)?.as_int()? as isize;
+        let start = self.evaluate_expression(&stmt.start)?.as_i64().ok_or("For loop start must be an integer")? as isize;
+        let end = self.evaluate_expression(&stmt.end)?.as_i64().ok_or("For loop end must be an integer")? as isize;
 
         for i in start..end {
             self.context
-                .insert(stmt.variable.clone(), MetadataValue::Integer(i as i64));
+                .insert(stmt.variable.clone(), Value::Number(serde_json::Number::from(i as i64)));
             self.execute_statements(&stmt.body)?;
         }
         // Remove loop variable from context after loop finishes
@@ -165,9 +166,9 @@ impl GGLEngine {
     }
 
     fn handle_node(&mut self, stmt: &NodeDeclaration) -> Result<(), String> {
-        let id = self.evaluate_expression(&stmt.id)?.to_string();
+        let id = self.evaluate_expression(&stmt.id)?.to_string().replace('"', "");
         let node_type = match &stmt.node_type {
-            Some(expr) => self.evaluate_expression(expr)?.to_string(),
+            Some(expr) => self.evaluate_expression(expr)?.to_string().replace('"', ""),
             None => String::new(),
         };
         let mut metadata = HashMap::new();
@@ -176,27 +177,25 @@ impl GGLEngine {
         }
 
         self.graph
-            .add_node(Node::new(id).with_type(node_type).with_metadata_map(metadata));
+            .add_node(id, Node::new().with_type(node_type).with_metadata_map(metadata));
         Ok(())
     }
 
     fn handle_edge(&mut self, stmt: &EdgeDeclaration) -> Result<(), String> {
         let id = match &stmt.id {
-            Some(expr) => self.evaluate_expression(expr)?.to_string(),
-            None => format!(
-                "edge_{}",
-                self.graph.edge_count() + self.graph.node_count()
-            ), // Simple unique ID
+            Some(expr) => self.evaluate_expression(expr)?.to_string().replace('"', ""),
+            None => self.graph.generate_unique_edge_id("edge"),
         };
-        let source = self.evaluate_expression(&stmt.source)?.to_string();
-        let target = self.evaluate_expression(&stmt.target)?.to_string();
+        let source = self.evaluate_expression(&stmt.source)?.to_string().replace('"', "");
+        let target = self.evaluate_expression(&stmt.target)?.to_string().replace('"', "");
         let mut metadata = HashMap::new();
         for (key, expr) in &stmt.attributes {
             metadata.insert(key.clone(), self.evaluate_expression(expr)?);
         }
 
         self.graph.add_edge(
-            Edge::new(id, source, target, stmt.directed).with_metadata_map(metadata),
+            id,
+            Edge::new(source, target, stmt.directed).with_metadata_map(metadata),
         );
         Ok(())
     }
@@ -212,11 +211,11 @@ impl GGLEngine {
                 generator(&params).map_err(|e| format!("Generator '{generator_name}' error: {e}"))?;
 
             // Merge generated graph into the current graph
-            for (_, node) in generated_graph.nodes {
-                self.graph.add_node(node);
+            for (id, node) in generated_graph.nodes {
+                self.graph.add_node(id, node);
             }
-            for (_, edge) in generated_graph.edges {
-                self.graph.add_edge(edge);
+            for (id, edge) in generated_graph.edges {
+                self.graph.add_edge(id, edge);
             }
         } else {
             return Err(format!("Unknown generator: {generator_name}"));
@@ -235,8 +234,8 @@ impl GGLEngine {
     }
 
     fn handle_apply(&mut self, stmt: &ApplyStatement) -> Result<(), String> {
-        let iterations = self.evaluate_expression(&stmt.iterations)?.as_int()? as usize;
-        if let Some(rule) = self.rules.get(&stmt.rule_name) {
+        let iterations = self.evaluate_expression(&stmt.iterations)?.as_i64().ok_or("Apply iterations must be an integer")? as usize;
+        if let Some(rule) = self.rules.get(&stmt.rule_name).cloned() {
             rule.apply(&mut self.graph, iterations)
                 .map_err(|e| format!("Rule '{}' application error: {e}", stmt.rule_name))?;
         } else {
@@ -246,17 +245,19 @@ impl GGLEngine {
     }
 
     /// Evaluates an expression by resolving variables or interpreting literals.
-    fn evaluate_expression(&self, expr: &Expression) -> Result<MetadataValue, String> {
+    fn evaluate_expression(&self, expr: &Expression) -> Result<Value, String> {
         match expr {
-            Expression::StringLiteral(s) => Ok(MetadataValue::String(s.clone())),
-            Expression::Integer(i) => Ok(MetadataValue::Integer(*i)),
-            Expression::Float(f) => Ok(MetadataValue::Float(*f)),
-            Expression::Boolean(b) => Ok(MetadataValue::Boolean(*b)),
-            Expression::Identifier(name) => self
-                .context
-                .get(name)
-                .cloned()
-                .ok_or_else(|| format!("Undefined variable: '{name}'")),
+            Expression::StringLiteral(s) => Ok(Value::String(s.clone())),
+            Expression::Integer(i) => Ok(Value::Number(serde_json::Number::from(*i))),
+            Expression::Float(f) => Ok(Value::Number(serde_json::Number::from_f64(*f).unwrap())),
+            Expression::Boolean(b) => Ok(Value::Bool(*b)),
+            Expression::Identifier(name) => {
+                // First try to resolve as a variable, if not found treat as string literal
+                Ok(self.context
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| Value::String(name.clone())))
+            }
             Expression::FormattedString(parts) => {
                 let mut result = String::new();
                 for part in parts {
@@ -264,11 +265,11 @@ impl GGLEngine {
                         parser::StringPart::Literal(s) => result.push_str(s),
                         parser::StringPart::Variable(var) => {
                             let value = self.context.get(var).ok_or(format!("Undefined variable: '{var}'"))?;
-                            result.push_str(&value.to_string());
+                            result.push_str(&value.to_string().replace('"', ""));
                         }
                     }
                 }
-                Ok(MetadataValue::String(result))
+                Ok(Value::String(result))
             }
         }
     }

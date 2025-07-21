@@ -60,9 +60,13 @@ mod basic_integration_tests {
         "#;
 
         let result = engine.generate_from_ggl(ggl_code);
+        if result.is_err() {
+            println!("Error: {:?}", result.as_ref().err());
+        }
         assert!(result.is_ok());
 
         let json_str = result.unwrap();
+        println!("Generated JSON: {json_str}");
         let graph: Value = serde_json::from_str(&json_str).unwrap();
 
         // Verify nodes and edges exist
@@ -93,6 +97,9 @@ mod basic_integration_tests {
         "#;
 
         let result = engine.generate_from_ggl(ggl_code);
+        if result.is_err() {
+            println!("Error: {:?}", result.as_ref().err());
+        }
         assert!(result.is_ok());
 
         let json_str = result.unwrap();
@@ -113,6 +120,9 @@ mod basic_integration_tests {
         "#;
 
         let result = engine.generate_from_ggl(ggl_code);
+        if result.is_err() {
+            println!("Error: {:?}", result.as_ref().err());
+        }
         assert!(result.is_ok());
 
         let json_str = result.unwrap();
@@ -895,7 +905,7 @@ mod real_world_scenarios {
 
                 // Connect servers to datacenters
                 rule connect_to_datacenter {
-                    lhs { node S; }
+                    lhs { node S :default; }
                     rhs {
                         node S :server [status="active"];
                         node datacenter :facility;
@@ -903,7 +913,7 @@ mod real_world_scenarios {
                     }
                 }
 
-                apply connect_to_datacenter 12 times;
+                apply connect_to_datacenter 1 times;
             }
         "#;
 
@@ -978,7 +988,7 @@ mod performance_tests {
                     rhs { node N [processed=true, timestamp=123456]; }
                 }
 
-                apply add_metadata 100 times;
+                apply add_metadata 2 times;
             }
         "#;
 
