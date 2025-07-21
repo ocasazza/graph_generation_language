@@ -75,7 +75,7 @@ jobs:
   # Create release PR with version updates and changelog
   release-pr:
     needs: omnix
-    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/dev' && github.base_ref == 'main' && github.event_name == 'pull_request' }}
+    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
