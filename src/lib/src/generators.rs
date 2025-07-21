@@ -300,9 +300,6 @@ pub fn generate_tree(params: &HashMap<String, Value>) -> Result<Graph, String> {
 pub fn generate_barabasi_albert(
     params: &HashMap<String, Value>,
 ) -> Result<Graph, String> {
-    use rand::seq::SliceRandom;
-    use rand::thread_rng;
-
     let n = get_param_int(params, "nodes")?;
     let m = get_param_int(params, "edges_per_node")?;
     let prefix = get_param_string(params, "prefix", "n");
@@ -315,7 +312,6 @@ pub fn generate_barabasi_albert(
     }
 
     let mut graph = Graph::new();
-    let mut rng = thread_rng();
 
     // Start with m nodes and create a complete graph among them
     for i in 0..m {
@@ -350,8 +346,9 @@ pub fn generate_barabasi_albert(
         let mut attempts = 0;
 
         while selected_targets.len() < m && attempts < 100 {
-            if let Some(target) = degrees.choose(&mut rng) {
-                selected_targets.insert(target.clone());
+            if !degrees.is_empty() {
+                let idx = fastrand::usize(..degrees.len());
+                selected_targets.insert(degrees[idx].clone());
             }
             attempts += 1;
         }
