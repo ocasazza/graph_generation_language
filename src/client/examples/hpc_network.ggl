@@ -40,6 +40,7 @@ graph hpc_cluster {
 
     // Adaptive network topology generator
     generate complete {
+        nodes: 32;
         topology: "fat_tree";
         bandwidth: "200Gbps";
         redundancy: 2;

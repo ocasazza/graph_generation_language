@@ -1,6 +1,6 @@
 //! Transformation rule engine for graph manipulation.
 
-use crate::parser::{Expression, NodeDeclaration, Pattern};
+use crate::parser::{Expression, NodeDeclaration, Pattern, AttributeMatch, ComparisonOperator};
 use crate::types::{Edge, Graph, Node};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -28,6 +28,35 @@ fn expression_to_value(expr: &Expression) -> Result<Value, String> {
         Expression::Identifier(s) => Ok(Value::String(s.clone())), // Treat identifiers in RHS as strings
         Expression::FormattedString(_) => {
             Err("Formatted strings are not supported in rule RHS attributes".to_string())
+        }
+    }
+}
+
+fn evaluate_condition(graph_value: &Value, op: &ComparisonOperator, expr: &Expression) -> Result<bool, String> {
+    let pattern_value = expression_to_value(expr)?;
+
+    match (graph_value, &pattern_value) {
+        (Value::Number(g_num), Value::Number(p_num)) => {
+            let g_f64 = g_num.as_f64().ok_or("Invalid graph number")?;
+            let p_f64 = p_num.as_f64().ok_or("Invalid pattern number")?;
+
+            let result = match op {
+                ComparisonOperator::LessThan => g_f64 < p_f64,
+                ComparisonOperator::GreaterThan => g_f64 > p_f64,
+                ComparisonOperator::LessEqual => g_f64 <= p_f64,
+                ComparisonOperator::GreaterEqual => g_f64 >= p_f64,
+                ComparisonOperator::Equal => (g_f64 - p_f64).abs() < f64::EPSILON,
+                ComparisonOperator::NotEqual => (g_f64 - p_f64).abs() >= f64::EPSILON,
+            };
+            Ok(result)
+        }
+        _ => {
+            // For non-numeric comparisons, only equality makes sense
+            match op {
+                ComparisonOperator::Equal => Ok(graph_value == &pattern_value),
+                ComparisonOperator::NotEqual => Ok(graph_value != &pattern_value),
+                _ => Err("Comparison operators other than == and != are only supported for numeric values".to_string()),
+            }
         }
     }
 }
@@ -169,9 +198,17 @@ impl Rule {
             }
         }
         // Check attributes
-        for (p_key, p_val_expr) in &p_node.attributes {
+        for (p_key, p_attr_match) in &p_node.attributes {
             if let Some(g_val) = g_node.metadata.get(p_key) {
-                if g_val == &expression_to_value(p_val_expr)? {
+                let matches = match p_attr_match {
+                    AttributeMatch::Exact(expr) => {
+                        g_val == &expression_to_value(expr)?
+                    }
+                    AttributeMatch::Condition(op, expr) => {
+                        evaluate_condition(g_val, op, expr)?
+                    }
+                };
+                if matches {
                     continue;
                 }
             }
@@ -200,8 +237,14 @@ impl Rule {
         for p_node in &self.rhs.nodes {
             let p_node_id = p_node.id.to_string();
             let mut metadata = HashMap::new();
-            for (key, val_expr) in &p_node.attributes {
-                metadata.insert(key.clone(), expression_to_value(val_expr)?);
+            for (key, attr_match) in &p_node.attributes {
+                let value = match attr_match {
+                    AttributeMatch::Exact(expr) => expression_to_value(expr)?,
+                    AttributeMatch::Condition(_, _) => {
+                        return Err("Conditional attributes are not supported in RHS patterns".to_string());
+                    }
+                };
+                metadata.insert(key.clone(), value);
             }
 
             if let Some(g_node_id) = m.node_mapping.get(&p_node_id) {

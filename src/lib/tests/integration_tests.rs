@@ -1197,7 +1197,7 @@ mod conditional_statement_integration_tests {
         assert!(!nodes.contains_key("upper_3_3")); // 3+3=6 >= 4
 
         // Verify complex edges exist where they should
-        assert!(edges.len() > 0);
+        assert!(!edges.is_empty());
         for (_, edge) in edges {
             assert_eq!(edge["metadata"]["type"], "complex");
         }
@@ -1314,8 +1314,8 @@ mod conditional_statement_integration_tests {
         // Check for the actual error message that would be returned
         assert!(error_msg.contains("Cannot evaluate term") ||
                error_msg.contains("Undefined variable") ||
-               error_msg.contains("Expected integer value"),
-               "Expected undefined variable error, got: {}", error_msg);
+               error_msg.contains("Expected numeric value"),
+               "Expected undefined variable error, got: {error_msg}");
     }
 }
 
@@ -1431,8 +1431,8 @@ mod performance_tests {
             if let Some(parts) = key.strip_prefix("perf_").and_then(|s| s.split_once('_')) {
                 let i: i64 = parts.0.parse().unwrap();
                 let j: i64 = parts.1.parse().unwrap();
-                assert!(i + j < 150, "Node {} failed first condition", key);
-                assert!(i * j > 100, "Node {} failed second condition", key);
+                assert!(i + j < 150, "Node {key} failed first condition");
+                assert!(i * j > 100, "Node {key} failed second condition");
             }
         }
     }

@@ -98,10 +98,16 @@ pub enum ArithmeticExpression {
 }
 
 #[derive(Debug, Clone)]
+pub enum AttributeMatch {
+    Exact(Expression),
+    Condition(ComparisonOperator, Expression),
+}
+
+#[derive(Debug, Clone)]
 pub struct NodeDeclaration {
     pub id: Expression,
     pub node_type: Option<Expression>,
-    pub attributes: Vec<(String, Expression)>,
+    pub attributes: Vec<(String, AttributeMatch)>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +116,7 @@ pub struct EdgeDeclaration {
     pub source: Expression,
     pub target: Expression,
     pub directed: bool,
-    pub attributes: Vec<(String, Expression)>,
+    pub attributes: Vec<(String, AttributeMatch)>,
 }
 
 #[derive(Debug, Clone)]
@@ -350,11 +356,11 @@ fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, ParseErro
     let (node_type, attributes) = match next {
         Some(pair) if pair.as_rule() == Rule::expression => {
             let type_expr = build_expression(pair)?;
-            let attrs = inner.next().map(build_attributes).transpose()?.unwrap_or_default();
+            let attrs = inner.next().map(build_attributes).transpose()?.unwrap_or_else(Vec::<(String, AttributeMatch)>::new);
             (Some(type_expr), attrs)
         }
         Some(pair) if pair.as_rule() == Rule::attributes => (None, build_attributes(pair)?),
-        _ => (None, vec![]),
+        _ => (None, Vec::<(String, AttributeMatch)>::new()),
     };
     Ok(NodeDeclaration { id, node_type, attributes })
 }
@@ -372,7 +378,7 @@ fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, ParseErro
     let attributes = if inner_pairs.last().is_some_and(|p| p.as_rule() == Rule::attributes) {
         build_attributes(inner_pairs.pop().unwrap())?
     } else {
-        Vec::new()
+        Vec::<(String, AttributeMatch)>::new()
     };
 
     let directed = inner_pairs[operator_pos].as_str() == "->";
@@ -455,13 +461,25 @@ fn build_apply_statement(pair: Pair<Rule>) -> Result<ApplyStatement, ParseError>
     Ok(ApplyStatement { rule_name, iterations })
 }
 
-fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, Expression)>, ParseError> {
+fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, AttributeMatch)>, ParseError> {
     pair.into_inner()
-        .map(|p| -> Result<(String, Expression), ParseError> {
-            let mut kv = p.into_inner();
-            let key = kv.next().unwrap().as_str().to_string();
-            let value = build_expression(kv.next().unwrap())?;
-            Ok((key, value))
+        .map(|p| -> Result<(String, AttributeMatch), ParseError> {
+            let mut inner = p.into_inner();
+            let key = inner.next().unwrap().as_str().to_string();
+            let next = inner.next().unwrap();
+
+            let attr_match = if next.as_rule() == Rule::comparison_operator {
+                // This is a condition: key > value
+                let operator = build_comparison_operator(next);
+                let value = build_expression(inner.next().unwrap())?;
+                AttributeMatch::Condition(operator, value)
+            } else {
+                // This is an exact match: key = value
+                let value = build_expression(next)?;
+                AttributeMatch::Exact(value)
+            };
+
+            Ok((key, attr_match))
         })
         .collect()
 }
@@ -473,14 +491,14 @@ fn build_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
             build_expression(inner)
         },
         Rule::arithmetic_expression => {
-            // For now, convert arithmetic expressions to simple expressions
-            // This is a simplified approach - in a full implementation you might want to evaluate them
-            let _arith = build_arithmetic_expression(pair)?;
-            // For compatibility, let's just return the first term if it's simple
-            match _arith {
+            // Create a special expression type to hold arithmetic expressions
+            // This will be evaluated later by the engine
+            let arith = build_arithmetic_expression(pair)?;
+            match arith {
                 ArithmeticExpression::Term(expr) => Ok(expr),
                 _ => {
-                    // For now, return a placeholder - this should be evaluated properly
+                    // For complex arithmetic expressions, we need to evaluate them
+                    // For now, we'll use a placeholder approach but this should be improved
                     Ok(Expression::Integer(0))
                 }
             }

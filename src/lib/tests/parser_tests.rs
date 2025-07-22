@@ -1,4 +1,4 @@
-use graph_generation_language::parser::{parse_ggl, Expression, Statement};
+use graph_generation_language::parser::{parse_ggl, Expression, Statement, AttributeMatch};
 
 #[cfg(test)]
 mod lexical_tests {
@@ -80,7 +80,7 @@ mod lexical_tests {
                     // Find the label attribute in the Vec<(String, Expression)>
                     let label_attr = node.attributes.iter().find(|(key, _)| key == "label");
                     match label_attr {
-                        Some((_, Expression::StringLiteral(s))) => {
+                        Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                             assert_eq!(s, expected_label)
                         }
                         _ => panic!("Expected string label at position {i}"),
@@ -135,13 +135,13 @@ mod lexical_tests {
                     let weight_attr = node.attributes.iter().find(|(key, _)| key == "weight");
                     match (weight_attr, expected_weight) {
                         (
-                            Some((_, Expression::Integer(n))),
+                            Some((_, AttributeMatch::Exact(Expression::Integer(n)))),
                             ExpectedWeight::Integer(expected),
                         ) => {
                             assert_eq!(*n, *expected);
                         }
                         (
-                            Some((_, Expression::Float(n))),
+                            Some((_, AttributeMatch::Exact(Expression::Float(n)))),
                             ExpectedWeight::Float(expected),
                         ) => {
                             assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
@@ -177,7 +177,7 @@ mod lexical_tests {
             Statement::Node(node) => {
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(true))) => (),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(true)))) => (),
                     _ => panic!("Expected true boolean"),
                 }
             },
@@ -188,7 +188,7 @@ mod lexical_tests {
             Statement::Node(node) => {
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(false))) => (),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(false)))) => (),
                     _ => panic!("Expected false boolean"),
                 }
             },
@@ -323,7 +323,7 @@ mod node_declaration_tests {
 
                 let name_attr = node.attributes.iter().find(|(key, _)| key == "name");
                 match name_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                         assert_eq!(s, "Alice")
                     }
                     _ => panic!("Expected name attribute"),
@@ -331,13 +331,13 @@ mod node_declaration_tests {
 
                 let age_attr = node.attributes.iter().find(|(key, _)| key == "age");
                 match age_attr {
-                    Some((_, Expression::Integer(n))) => assert_eq!(*n, 30),
+                    Some((_, AttributeMatch::Exact(Expression::Integer(n)))) => assert_eq!(*n, 30),
                     _ => panic!("Expected age attribute"),
                 }
 
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(b))) => assert!(*b),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(b)))) => assert!(*b),
                     _ => panic!("Expected active attribute"),
                 }
             }
@@ -470,14 +470,14 @@ mod edge_declaration_tests {
                 assert_eq!(edge.attributes.len(), 2);
                 let weight_attr = edge.attributes.iter().find(|(key, _)| key == "weight");
                 match weight_attr {
-                    Some((_, Expression::Float(n))) => {
+                    Some((_, AttributeMatch::Exact(Expression::Float(n)))) => {
                         assert!((n - 1.5).abs() < f64::EPSILON)
                     }
                     _ => panic!("Expected weight attribute"),
                 }
                 let label_attr = edge.attributes.iter().find(|(key, _)| key == "label");
                 match label_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                         assert_eq!(s, "connection")
                     }
                     _ => panic!("Expected label attribute"),
@@ -777,11 +777,11 @@ mod conditional_statement_tests {
         for (op, name) in operators {
             let input = format!(r#"
                 graph test {{
-                    if i {} 5 {{
+                    if i {op} 5 {{
                         node test;
                     }}
                 }}
-            "#, op);
+            "#);
 
             let result = parse_ggl(&input);
             assert!(result.is_ok(), "Failed to parse {} operator: {:?}", name, result.err());
@@ -791,9 +791,9 @@ mod conditional_statement_tests {
                 Statement::If(if_stmt) => {
                     // Just verify the operator was parsed correctly by checking its debug representation
                     let op_str = format!("{:?}", &if_stmt.condition.operator);
-                    assert!(op_str.contains(name), "Operator mismatch for {}, got: {}", name, op_str);
+                    assert!(op_str.contains(name), "Operator mismatch for {name}, got: {op_str}");
                 }
-                _ => panic!("Expected If statement for {}", name),
+                _ => panic!("Expected If statement for {name}"),
             }
         }
     }
@@ -894,7 +894,7 @@ mod conditional_statement_tests {
                         match &parts[1] {
                             graph_generation_language::parser::StringPart::Variable(var) => {
                                 // Allow both "i+1" and "i + 1" since parsing may preserve original spacing
-                                assert!(var == "i + 1" || var == "i+1", "Expected 'i + 1' or 'i+1', got: '{}'", var);
+                                assert!(var == "i + 1" || var == "i+1", "Expected 'i + 1' or 'i+1', got: '{var}'");
                             }
                             _ => panic!("Expected variable part"),
                         }

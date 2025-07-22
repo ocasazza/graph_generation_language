@@ -49,6 +49,7 @@ graph neural_network {
 
     // Network topology generator
     generate complete {
+        nodes: 20;
         layers: 3;
         connectivity: "dense";
         weight_init: "xavier";

@@ -9,7 +9,7 @@ graph quantum_circuit {
             state="0",
             fidelity=fidelity,
             entangled=false,
-            high_fidelity=1
+            high_fidelity=true
         ];
     }
 
@@ -27,6 +27,7 @@ graph quantum_circuit {
 
     // Compact gate generation
     generate complete {
+        nodes: 10;
         gate_types: "H_CNOT_X_measure";
         error_correction: true;
         topology: "linear";
@@ -35,9 +36,9 @@ graph quantum_circuit {
     // Error correction rule
     rule error_correction {
         lhs {
-            node q1 :qubit [high_fidelity=0];
-            node q2 :qubit [high_fidelity=1];
-            node q3 :qubit [high_fidelity=1];
+            node q1 :qubit [high_fidelity=false];
+            node q2 :qubit [high_fidelity=true];
+            node q3 :qubit [high_fidelity=true];
         }
         rhs {
             node syndrome :qubit [type="ancilla"];
@@ -63,7 +64,7 @@ graph quantum_circuit {
     // Measurement collapse rule
     rule measurement_collapse {
         lhs {
-            node q :qubit [high_fidelity=1];
+            node q :qubit [high_fidelity=true];
         }
         rhs {
             edge: q -> q [operation="measure", result_bit=1];

@@ -45,6 +45,7 @@ graph toroidal_mesh {
 
     // Mesh topology generator with wrap-around
     generate complete {
+        nodes: 36;
         dimensions_rows: rows;
         dimensions_cols: cols;
         wrap_around: true;

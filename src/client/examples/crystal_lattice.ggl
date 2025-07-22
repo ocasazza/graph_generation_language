@@ -61,6 +61,7 @@ graph crystal_lattice {
 
     // Crystal structure generator
     generate complete {
+        nodes: 27;
         lattice_type: "cubic";
         coordination: 4;
         temperature: temperature;

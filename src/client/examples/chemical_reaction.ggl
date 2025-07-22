@@ -19,6 +19,7 @@ graph chemical_reaction {
 
     // Reaction mechanism generator
     generate complete {
+        nodes: 10;
         type: "combustion";
         temperature: temp;
         catalyst_present: true;
@@ -32,8 +33,9 @@ graph chemical_reaction {
             node C :catalyst [active=true];
         }
         rhs {
-            edge: R1 -> H2O [activation_energy=50.0, catalyzed=true];
-            edge: R2 -> H2O [activation_energy=50.0, catalyzed=true];
+            node product :molecule [phase="liquid", energy=-285.8];
+            edge: R1 -> product [activation_energy=50.0, catalyzed=true];
+            edge: R2 -> product [activation_energy=50.0, catalyzed=true];
             edge: C -> R1 [interaction="surface_binding"];
         }
     }

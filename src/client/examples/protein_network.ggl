@@ -1,8 +1,8 @@
 graph protein_network {
     // Core signaling proteins with dynamic properties
-    let stress_level = 0.7;
+    let stress_level = 1.0;
     let cell_cycle_phase = "G1";
-    let stress_active = 1; // boolean as integer
+    let stress_active = true; // proper boolean
 
     node p53 :protein [activity=0.0, phosphorylated=false, critical=true];
     node MDM2 :protein [activity=0.2, bound_p53=false];
@@ -26,6 +26,7 @@ graph protein_network {
 
     // Protein interaction generator
     generate complete {
+        nodes: 12;
         pathway: "DNA_damage_response";
         stress_level: stress_level;
         feedback_loops: true;
@@ -34,7 +35,7 @@ graph protein_network {
     // Stress activation rule
     rule stress_response {
         lhs {
-            node sensor :protein [sensor=true, stress_responsive=1];
+            node sensor :protein [sensor=true, stress_responsive=true];
             node target :protein [critical=true];
         }
         rhs {
@@ -68,7 +69,7 @@ graph protein_network {
     }
 
     // Conditional pathway based on stress level
-    if stress_level > 0.5 {
+    if stress_level > 0.0 {
         edge: ATM -> "effector2" [interaction="direct_activation", stress_dependent=true];
     }
 

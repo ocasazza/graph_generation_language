@@ -1,0 +1,21 @@
+graph test_mixed_numeric {
+    // Test float values
+    let stress_level = 0.7;
+    if stress_level > 0.5 {
+        node high_stress [level=stress_level, critical=true];
+    }
+
+    // Test mixed comparisons: int compared to float
+    let count = 10;
+    if count > 5.5 {
+        node enough_nodes [count=count, sufficient=true];
+    }
+
+    // Test float values in attributes
+    node float_node [value=3.14, ratio=1.5];
+
+    // Test for loops work with integers
+    for i in 0..3 {
+        node "node_{i}" [index=i, base_value=0.5];
+    }
+}

@@ -39,7 +39,7 @@ apply_statement = { "apply" ~ identifier ~ expression ~ "times" ~ ";" }
 
 // --- Components ---
 attributes = { "[" ~ (attribute_pair ~ ("," ~ attribute_pair)*)? ~ "]" }
-attribute_pair = { identifier ~ "=" ~ expression }
+attribute_pair = { identifier ~ ("=" ~ expression | comparison_operator ~ expression) }
 
 // --- Expressions and Primitives ---
 expression = { arithmetic_expression | literal | formatted_string | identifier }
