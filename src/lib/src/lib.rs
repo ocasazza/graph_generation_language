@@ -538,13 +538,11 @@ impl GGLEngine {
         }
 
         // Try resolving as variable
-        if let Some(value) = self.context.get(term) {
-            if let Value::Number(n) = value {
-                if let Some(i) = n.as_i64() {
-                    return Ok(NumericValue::Integer(i));
-                } else if let Some(f) = n.as_f64() {
-                    return Ok(NumericValue::Float(f));
-                }
+        if let Some(Value::Number(n)) = self.context.get(term) {
+            if let Some(i) = n.as_i64() {
+                return Ok(NumericValue::Integer(i));
+            } else if let Some(f) = n.as_f64() {
+                return Ok(NumericValue::Float(f));
             }
         }
 

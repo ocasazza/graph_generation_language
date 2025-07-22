@@ -49,6 +49,7 @@
                 "html"
                 "scss"
                 "pest"
+                "ggl"
               ]
             ) unfilteredRoot)
           ];
