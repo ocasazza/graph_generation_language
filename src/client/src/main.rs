@@ -10,6 +10,7 @@ use wasm_bindgen::JsCast;
 #[derive(Clone)]
 pub struct GGLExample {
     name: &'static str,
+    #[allow(dead_code)]
     description: &'static str,
     code: &'static str,
 }

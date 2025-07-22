@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod example_tests {
+mod tests {
     use graph_generation_language::GGLEngine;
 
     #[test]
