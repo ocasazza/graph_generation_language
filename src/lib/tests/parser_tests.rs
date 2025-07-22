@@ -1,4 +1,4 @@
-use graph_generation_language::parser::{parse_ggl, Expression, Statement};
+use graph_generation_language::parser::{parse_ggl, Expression, Statement, AttributeMatch};
 
 #[cfg(test)]
 mod lexical_tests {
@@ -80,7 +80,7 @@ mod lexical_tests {
                     // Find the label attribute in the Vec<(String, Expression)>
                     let label_attr = node.attributes.iter().find(|(key, _)| key == "label");
                     match label_attr {
-                        Some((_, Expression::StringLiteral(s))) => {
+                        Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                             assert_eq!(s, expected_label)
                         }
                         _ => panic!("Expected string label at position {i}"),
@@ -135,13 +135,13 @@ mod lexical_tests {
                     let weight_attr = node.attributes.iter().find(|(key, _)| key == "weight");
                     match (weight_attr, expected_weight) {
                         (
-                            Some((_, Expression::Integer(n))),
+                            Some((_, AttributeMatch::Exact(Expression::Integer(n)))),
                             ExpectedWeight::Integer(expected),
                         ) => {
                             assert_eq!(*n, *expected);
                         }
                         (
-                            Some((_, Expression::Float(n))),
+                            Some((_, AttributeMatch::Exact(Expression::Float(n)))),
                             ExpectedWeight::Float(expected),
                         ) => {
                             assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
@@ -177,7 +177,7 @@ mod lexical_tests {
             Statement::Node(node) => {
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(true))) => (),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(true)))) => (),
                     _ => panic!("Expected true boolean"),
                 }
             },
@@ -188,7 +188,7 @@ mod lexical_tests {
             Statement::Node(node) => {
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(false))) => (),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(false)))) => (),
                     _ => panic!("Expected false boolean"),
                 }
             },
@@ -323,7 +323,7 @@ mod node_declaration_tests {
 
                 let name_attr = node.attributes.iter().find(|(key, _)| key == "name");
                 match name_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                         assert_eq!(s, "Alice")
                     }
                     _ => panic!("Expected name attribute"),
@@ -331,13 +331,13 @@ mod node_declaration_tests {
 
                 let age_attr = node.attributes.iter().find(|(key, _)| key == "age");
                 match age_attr {
-                    Some((_, Expression::Integer(n))) => assert_eq!(*n, 30),
+                    Some((_, AttributeMatch::Exact(Expression::Integer(n)))) => assert_eq!(*n, 30),
                     _ => panic!("Expected age attribute"),
                 }
 
                 let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
                 match active_attr {
-                    Some((_, Expression::Boolean(b))) => assert!(*b),
+                    Some((_, AttributeMatch::Exact(Expression::Boolean(b)))) => assert!(*b),
                     _ => panic!("Expected active attribute"),
                 }
             }
@@ -470,14 +470,14 @@ mod edge_declaration_tests {
                 assert_eq!(edge.attributes.len(), 2);
                 let weight_attr = edge.attributes.iter().find(|(key, _)| key == "weight");
                 match weight_attr {
-                    Some((_, Expression::Float(n))) => {
+                    Some((_, AttributeMatch::Exact(Expression::Float(n)))) => {
                         assert!((n - 1.5).abs() < f64::EPSILON)
                     }
                     _ => panic!("Expected weight attribute"),
                 }
                 let label_attr = edge.attributes.iter().find(|(key, _)| key == "label");
                 match label_attr {
-                    Some((_, Expression::StringLiteral(s))) => {
+                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
                         assert_eq!(s, "connection")
                     }
                     _ => panic!("Expected label attribute"),
@@ -728,6 +728,242 @@ mod complex_program_tests {
 }
 
 #[cfg(test)]
+mod conditional_statement_tests {
+    use super::*;
+    use graph_generation_language::parser::{ArithmeticExpression, ComparisonOperator};
+
+    #[test]
+    fn test_basic_if_statement() {
+        let input = r#"
+            graph test {
+                if i < 5 {
+                    node "test_node";
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse basic if statement: {:?}", result.err());
+
+        let ast = result.unwrap();
+        assert_eq!(ast.statements.len(), 1);
+
+        match &ast.statements[0] {
+            Statement::If(if_stmt) => {
+                // Check condition
+                match &if_stmt.condition.operator {
+                    ComparisonOperator::LessThan => (),
+                    _ => panic!("Expected less than operator"),
+                }
+                // Check body has one statement
+                assert_eq!(if_stmt.body.len(), 1);
+                assert!(matches!(if_stmt.body[0], Statement::Node(_)));
+            }
+            _ => panic!("Expected If statement"),
+        }
+    }
+
+    #[test]
+    fn test_all_comparison_operators() {
+        let operators = vec![
+            ("<", "LessThan"),
+            (">", "GreaterThan"),
+            ("<=", "LessEqual"),
+            (">=", "GreaterEqual"),
+            ("==", "Equal"),
+            ("!=", "NotEqual"),
+        ];
+
+        for (op, name) in operators {
+            let input = format!(r#"
+                graph test {{
+                    if i {op} 5 {{
+                        node test;
+                    }}
+                }}
+            "#);
+
+            let result = parse_ggl(&input);
+            assert!(result.is_ok(), "Failed to parse {} operator: {:?}", name, result.err());
+
+            let ast = result.unwrap();
+            match &ast.statements[0] {
+                Statement::If(if_stmt) => {
+                    // Just verify the operator was parsed correctly by checking its debug representation
+                    let op_str = format!("{:?}", &if_stmt.condition.operator);
+                    assert!(op_str.contains(name), "Operator mismatch for {name}, got: {op_str}");
+                }
+                _ => panic!("Expected If statement for {name}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_expressions_in_conditions() {
+        let input = r#"
+            graph test {
+                if i + 1 < j * 2 {
+                    node test;
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse arithmetic in condition: {:?}", result.err());
+
+        let ast = result.unwrap();
+        match &ast.statements[0] {
+            Statement::If(if_stmt) => {
+                // Check that left side is an addition
+                match &if_stmt.condition.left {
+                    ArithmeticExpression::Add(_, _) => (),
+                    _ => panic!("Expected addition on left side"),
+                }
+                // Check that right side is a multiplication
+                match &if_stmt.condition.right {
+                    ArithmeticExpression::Multiply(_, _) => (),
+                    _ => panic!("Expected multiplication on right side"),
+                }
+            }
+            _ => panic!("Expected If statement"),
+        }
+    }
+
+    #[test]
+    fn test_parentheses_in_arithmetic() {
+        let input = r#"
+            graph test {
+                if (i + 1) < (j - 2) {
+                    node test;
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse parentheses in arithmetic: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_multiple_statements_in_if_body() {
+        let input = r#"
+            graph test {
+                if i < 5 {
+                    node "node1";
+                    node "node2";
+                    edge: "node1" -> "node2";
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse multiple statements in if: {:?}", result.err());
+
+        let ast = result.unwrap();
+        match &ast.statements[0] {
+            Statement::If(if_stmt) => {
+                assert_eq!(if_stmt.body.len(), 3);
+                assert!(matches!(if_stmt.body[0], Statement::Node(_)));
+                assert!(matches!(if_stmt.body[1], Statement::Node(_)));
+                assert!(matches!(if_stmt.body[2], Statement::Edge(_)));
+            }
+            _ => panic!("Expected If statement"),
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_in_string_interpolation() {
+        let input = r#"
+            graph test {
+                node "node_{i+1}";
+                edge: "node_{j}" -> "node_{j*2}";
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse arithmetic in string interpolation: {:?}", result.err());
+
+        let ast = result.unwrap();
+        assert_eq!(ast.statements.len(), 2);
+
+        // Check node with arithmetic in string
+        match &ast.statements[0] {
+            Statement::Node(node) => {
+                match &node.id {
+                    Expression::FormattedString(parts) => {
+                        assert_eq!(parts.len(), 2); // "node_" and "{i+1}"
+                        match &parts[1] {
+                            graph_generation_language::parser::StringPart::Variable(var) => {
+                                // Allow both "i+1" and "i + 1" since parsing may preserve original spacing
+                                assert!(var == "i + 1" || var == "i+1", "Expected 'i + 1' or 'i+1', got: '{var}'");
+                            }
+                            _ => panic!("Expected variable part"),
+                        }
+                    }
+                    _ => panic!("Expected formatted string"),
+                }
+            }
+            _ => panic!("Expected Node statement"),
+        }
+    }
+
+    #[test]
+    fn test_nested_if_statements() {
+        let input = r#"
+            graph test {
+                if i < 5 {
+                    if j > 3 {
+                        node "nested";
+                    }
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse nested if statements: {:?}", result.err());
+
+        let ast = result.unwrap();
+        match &ast.statements[0] {
+            Statement::If(outer_if) => {
+                assert_eq!(outer_if.body.len(), 1);
+                match &outer_if.body[0] {
+                    Statement::If(inner_if) => {
+                        assert_eq!(inner_if.body.len(), 1);
+                        assert!(matches!(inner_if.body[0], Statement::Node(_)));
+                    }
+                    _ => panic!("Expected nested If statement"),
+                }
+            }
+            _ => panic!("Expected If statement"),
+        }
+    }
+
+    #[test]
+    fn test_if_with_for_loop() {
+        let input = r#"
+            graph test {
+                for i in 0..5 {
+                    if i > 2 {
+                        node "node_{i}";
+                    }
+                }
+            }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse if with for loop: {:?}", result.err());
+
+        let ast = result.unwrap();
+        match &ast.statements[0] {
+            Statement::For(for_stmt) => {
+                assert_eq!(for_stmt.body.len(), 1);
+                assert!(matches!(for_stmt.body[0], Statement::If(_)));
+            }
+            _ => panic!("Expected For statement"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod error_handling_tests {
     use super::*;
 
@@ -742,6 +978,23 @@ mod error_handling_tests {
             "graph { apply }",             // Missing rule name
             "graph { node n [invalid=] }", // Missing attribute value
             "graph { node n [=value] }",   // Missing attribute key
+        ];
+
+        for input in invalid_inputs {
+            let result = parse_ggl(input);
+            assert!(result.is_err(), "Expected error for input: {input}");
+        }
+    }
+
+    #[test]
+    fn test_invalid_conditional_syntax() {
+        let invalid_inputs = vec![
+            "graph { if { node test; } }",           // Missing condition
+            "graph { if i { node test; } }",         // Missing operator
+            "graph { if i < { node test; } }",       // Missing right operand
+            "graph { if < 5 { node test; } }",       // Missing left operand
+            "graph { if i < 5 node test; }",         // Missing braces
+            "graph { if i < 5 { node test; }",       // Missing closing brace
         ];
 
         for input in invalid_inputs {
