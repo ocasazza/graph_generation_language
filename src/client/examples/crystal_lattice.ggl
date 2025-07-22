@@ -1,50 +1,53 @@
-graph diamond_crystal {
-    // Diamond cubic lattice structure
-    let lattice_size = 3;
+graph crystal_lattice {
+    let size = 3;
+    let temperature = 300; // Kelvin
+    let defect_rate = 0.1;
 
-    // Create carbon atoms at lattice positions
-    for x in 0..lattice_size {
-        for y in 0..lattice_size {
-            for z in 0..lattice_size {
-                // Face-centered cubic positions
+    // Generate diamond cubic lattice
+    for x in 0..size {
+        for y in 0..size {
+            for z in 0..size {
+                let stability = 1.0 - (x + y + z) * 0.05;
                 node "C{x}_{y}_{z}" :atom [
                     element="Carbon",
-                    position_x=x,
-                    position_y=y,
-                    position_z=z,
-                    hybridization="sp3"
+                    pos_x=x,
+                    pos_y=y,
+                    pos_z=z,
+                    stability=stability,
+                    defective=0,
+                    bonded=true,
+                    stable=1
                 ];
             }
         }
     }
 
-    // Tetrahedral bonding - each carbon bonds to 4 neighbors
-    for x in 0..lattice_size {
-        for y in 0..lattice_size {
-            for z in 0..lattice_size {
-                // Bond to right neighbor
-                if (x + 1) < lattice_size {
+    // Covalent bonding with distance check
+    for x in 0..size {
+        for y in 0..size {
+            for z in 0..size {
+                // Nearest neighbor bonds
+                if x + 1 < size {
+                    let strength = 1.0 - defect_rate;
                     edge: "C{x}_{y}_{z}" -- "C{x+1}_{y}_{z}" [
                         bond_type="covalent",
-                        bond_order=1,
+                        strength=strength,
                         length=1.54
                     ];
                 }
-
-                // Bond to front neighbor
-                if (y + 1) < lattice_size {
+                if y + 1 < size {
+                    let strength = 1.0 - defect_rate;
                     edge: "C{x}_{y}_{z}" -- "C{x}_{y+1}_{z}" [
                         bond_type="covalent",
-                        bond_order=1,
+                        strength=strength,
                         length=1.54
                     ];
                 }
-
-                // Bond to top neighbor
-                if (z + 1) < lattice_size {
+                if z + 1 < size {
+                    let strength = 1.0 - defect_rate;
                     edge: "C{x}_{y}_{z}" -- "C{x}_{y}_{z+1}" [
                         bond_type="covalent",
-                        bond_order=1,
+                        strength=strength,
                         length=1.54
                     ];
                 }
@@ -52,13 +55,64 @@ graph diamond_crystal {
         }
     }
 
-    // Add some defects and dopants
-    node Si_dopant :atom [element="Silicon", type="n_type_dopant"];
-    node vacancy :defect [type="missing_carbon"];
+    // Add some dopants and defects
+    node Si_dopant :atom [element="Silicon", type="n_dopant", donor_electrons=1];
+    node vacancy :defect [type="missing_carbon", created_at=temperature];
 
-    // Replace one carbon with silicon
-    edge: Si_dopant -> "C1_1_1" [interaction="substitution"];
+    // Crystal structure generator
+    generate complete {
+        lattice_type: "cubic";
+        coordination: 4;
+        temperature: temperature;
+    }
 
-    // Create a vacancy
-    edge: vacancy -> "C2_2_2" [interaction="removal"];
+    // Defect propagation rule
+    rule defect_propagation {
+        lhs {
+            node defective :atom [defective=1, bonded=true];
+            node neighbor :atom [defective=0];
+            edge: defective -- neighbor [strength=0.8];
+        }
+        rhs {
+            node neighbor :atom [stability=0.8];
+            edge: defective -- neighbor [strength=0.7];
+        }
+    }
+
+    // Bond breaking rule
+    rule thermal_breakdown {
+        lhs {
+            edge bond: A -- B [strength=0.6];
+        }
+        rhs {
+            node vacancy :defect [type="broken_bond", temp=temperature];
+            edge: A -> vacancy [interaction="thermal_break"];
+            edge: vacancy -> B [interaction="thermal_break"];
+        }
+    }
+
+    // Dopant substitution rule
+    rule doping {
+        lhs {
+            node carbon :atom [stable=0];
+        }
+        rhs {
+            node silicon :atom [
+                element="Silicon",
+                type="n_dopant",
+                donor_electrons=1
+            ];
+            edge: silicon -> carbon [interaction="substitution"];
+        }
+    }
+
+    // Conditional defect creation at high temperatures
+    if temperature > 250 {
+        edge: Si_dopant -> "C1_1_1" [interaction="substitution"];
+        edge: vacancy -> "C2_2_2" [interaction="removal"];
+    }
+
+    apply defect_propagation 2 times;
+    apply thermal_breakdown 1 times;
+    apply doping 1 times;
 }

@@ -1,95 +1,96 @@
 graph hpc_cluster {
-    // Storage Fabric - Parallel File System
-    node storage_head :storage [type="metadata_server", capacity="10TB"];
-    node storage_1 :storage [type="data_server", capacity="100TB"];
-    node storage_2 :storage [type="data_server", capacity="100TB"];
-    node storage_3 :storage [type="data_server", capacity="100TB"];
+    // Dynamic cluster configuration
+    let cluster_size = 16;
+    let load_threshold = 0.8;
+    let network_tier = "infiniband";
 
-    // Storage fabric connections (InfiniBand)
-    edge: storage_head -- storage_1 [fabric="infiniband", bandwidth="100Gbps"];
-    edge: storage_head -- storage_2 [fabric="infiniband", bandwidth="100Gbps"];
-    edge: storage_head -- storage_3 [fabric="infiniband", bandwidth="100Gbps"];
+    // Management layer
+    node scheduler :control [type="slurm", load=0.0];
+    node storage :control [type="lustre", capacity=1000.0];
 
-    // Management Fabric
-    node login_1 :management [type="login_node", cores=64];
-    node login_2 :management [type="login_node", cores=64];
-    node scheduler :management [type="slurm_controller"];
-    node monitor :management [type="monitoring"];
+    // GPU compute nodes (first 8)
+    for i in 0..8 {
+        let load = i * 0.05;
+        node "node{i}" :compute [
+            tier="gpu",
+            cores=128,
+            load=load,
+            available=1,
+            is_gpu=1
+        ];
+    }
 
-    // Management connections
-    edge: login_1 -- scheduler [fabric="ethernet", bandwidth="10Gbps"];
-    edge: login_2 -- scheduler [fabric="ethernet", bandwidth="10Gbps"];
-    edge: monitor -- scheduler [fabric="ethernet", bandwidth="1Gbps"];
+    // CPU compute nodes (remaining 8)
+    for i in 8..cluster_size {
+        let load = i * 0.05;
+        node "node{i}" :compute [
+            tier="cpu",
+            cores=64,
+            load=load,
+            available=1,
+            is_gpu=0
+        ];
+    }
 
-    // GPU Compute Fabric - 3D Torus Topology
-    let gpu_rows = 4;
-    let gpu_cols = 4;
-    let gpu_layers = 2;
+    // Connect compute nodes to management
+    edge: scheduler -> "node0" [type="control", bandwidth="10Gbps"];
+    edge: storage -> "node0" [type="storage", bandwidth="100Gbps"];
+    edge: scheduler -> "node8" [type="control", bandwidth="10Gbps"];
+    edge: storage -> "node8" [type="storage", bandwidth="100Gbps"];
 
-    // Create GPU compute nodes
-    for layer in 0..gpu_layers {
-        for row in 0..gpu_rows {
-            for col in 0..gpu_cols {
-                node "gpu{layer}_{row}_{col}" :compute [
-                    type="gpu_node",
-                    gpus=8,
-                    memory="512GB",
-                    gpu_type="H100"
-                ];
-            }
+    // Adaptive network topology generator
+    generate complete {
+        topology: "fat_tree";
+        bandwidth: "200Gbps";
+        redundancy: 2;
+    }
+
+    // Load balancing rule
+    rule load_balance {
+        lhs {
+            node overloaded :compute [load>=0.8];
+            node available :compute [available=1];
+            node scheduler :control;
+        }
+        rhs {
+            edge: scheduler -> available [operation="migrate_job"];
+            edge: overloaded -> available [operation="transfer"];
+            node overloaded :compute [load=0.5];
+            node available :compute [load=0.6];
         }
     }
 
-    // 3D Torus connections - X dimension
-    for layer in 0..gpu_layers {
-        for row in 0..gpu_rows {
-            for col in 0..gpu_cols {
-                if col + 1 < gpu_cols {
-                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer}_{row}_{col+1}" [
-                        fabric="nvlink",
-                        bandwidth="900GB/s",
-                        dimension="x"
-                    ];
-                }
-            }
+    // Network optimization rule
+    rule optimize_network {
+        lhs {
+            node A :compute [is_gpu=1];
+            node B :compute [is_gpu=1];
+        }
+        rhs {
+            edge: A -- B [bandwidth="400Gbps", priority="high"];
         }
     }
 
-    // 3D Torus connections - Y dimension
-    for layer in 0..gpu_layers {
-        for row in 0..gpu_rows {
-            for col in 0..gpu_cols {
-                if row + 1 < gpu_rows {
-                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer}_{row+1}_{col}" [
-                        fabric="nvlink",
-                        bandwidth="900GB/s",
-                        dimension="y"
-                    ];
-                }
-            }
+    // Resource allocation rule
+    rule allocate_resources {
+        lhs {
+            node requester :compute [available=1];
+            node storage :control;
+        }
+        rhs {
+            edge: requester -> storage [
+                bandwidth=200.0,
+                allocation=true
+            ];
         }
     }
 
-    // 3D Torus connections - Z dimension
-    for layer in 0..gpu_layers {
-        for row in 0..gpu_rows {
-            for col in 0..gpu_cols {
-                if layer + 1 < gpu_layers {
-                    edge: "gpu{layer}_{row}_{col}" -- "gpu{layer+1}_{row}_{col}" [
-                        fabric="nvlink",
-                        bandwidth="900GB/s",
-                        dimension="z"
-                    ];
-                }
-            }
-        }
+    // Conditional high-performance connections
+    if cluster_size > 10 {
+        edge: "node0" -- "node8" [type="inter_tier", bandwidth="800Gbps"];
     }
 
-    // Connect management to compute fabric
-    edge: login_1 -- "gpu0_0_0" [fabric="infiniband", bandwidth="200Gbps"];
-    edge: login_2 -- "gpu1_0_0" [fabric="infiniband", bandwidth="200Gbps"];
-
-    // Connect storage to compute fabric
-    edge: storage_head -- "gpu0_0_0" [fabric="infiniband", bandwidth="200Gbps"];
-    edge: storage_head -- "gpu1_0_0" [fabric="infiniband", bandwidth="200Gbps"];
+    apply load_balance 3 times;
+    apply optimize_network 2 times;
+    apply allocate_resources 1 times;
 }

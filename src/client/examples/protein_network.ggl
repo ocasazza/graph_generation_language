@@ -1,38 +1,78 @@
-graph protein_interaction_network {
-    // Central signaling proteins
-    node p53 :protein [name="tumor suppressor p53", function="DNA damage response"];
-    node MDM2 :protein [name="MDM2", function="p53 regulation"];
-    node ATM :protein [name="ATM kinase", function="DNA damage sensor"];
+graph protein_network {
+    // Core signaling proteins with dynamic properties
+    let stress_level = 0.7;
+    let cell_cycle_phase = "G1";
+    let stress_active = 1; // boolean as integer
 
-    // Downstream effectors
-    node p21 :protein [name="p21", function="cell cycle arrest"];
-    node BAX :protein [name="BAX", function="apoptosis"];
-    node PUMA :protein [name="PUMA", function="apoptosis"];
+    node p53 :protein [activity=0.0, phosphorylated=false, critical=true];
+    node MDM2 :protein [activity=0.2, bound_p53=false];
+    node ATM :protein [activity=stress_level, sensor=true, stress_responsive=stress_active];
 
-    // Cell cycle proteins
-    node CDK2 :protein [name="CDK2", function="S phase progression"];
-    node cyclinE :protein [name="Cyclin E", function="CDK2 activation"];
+    // Downstream effectors with computed properties
+    for i in 0..3 {
+        let base_activity = 0.1 - i * 0.05;
+        node "effector{i}" :effector [
+            activity=base_activity,
+            p53_dependent=true,
+            index=i
+        ];
+    }
 
-    // DNA repair proteins
-    node BRCA1 :protein [name="BRCA1", function="homologous recombination"];
-    node BRCA2 :protein [name="BRCA2", function="homologous recombination"];
-
-    // Protein-protein interactions
+    // Basic protein interactions
     edge: ATM -> p53 [interaction="phosphorylation", activates=true];
-    edge: p53 -> p21 [interaction="transcription", activates=true];
-    edge: p53 -> BAX [interaction="transcription", activates=true];
-    edge: p53 -> PUMA [interaction="transcription", activates=true];
+    edge: p53 -> "effector0" [interaction="transcription", activates=true];
+    edge: p53 -> "effector1" [interaction="transcription", activates=true];
     edge: MDM2 -> p53 [interaction="ubiquitination", activates=false];
-    edge: p53 -> MDM2 [interaction="transcription", activates=true];
 
-    // Cell cycle regulation
-    edge: p21 -> CDK2 [interaction="inhibition", activates=false];
-    edge: cyclinE -> CDK2 [interaction="binding", activates=true];
+    // Protein interaction generator
+    generate complete {
+        pathway: "DNA_damage_response";
+        stress_level: stress_level;
+        feedback_loops: true;
+    }
 
-    // DNA repair pathway
-    edge: ATM -> BRCA1 [interaction="phosphorylation", activates=true];
-    edge: BRCA1 -> BRCA2 [interaction="recruitment", activates=true];
+    // Stress activation rule
+    rule stress_response {
+        lhs {
+            node sensor :protein [sensor=true, stress_responsive=1];
+            node target :protein [critical=true];
+        }
+        rhs {
+            edge: sensor -> target [interaction="phosphorylation"];
+            node target :protein [phosphorylated=true, activity=0.8];
+        }
+    }
 
-    // Feedback loops
-    edge: p21 -> p53 [interaction="stabilization", activates=true];
+    // Transcriptional activation rule
+    rule transcriptional_control {
+        lhs {
+            node tf :protein [phosphorylated=true];
+            node target :effector [p53_dependent=true];
+        }
+        rhs {
+            edge: tf -> target [interaction="transcription", strength=0.6];
+            node target :effector [activity=0.5];
+        }
+    }
+
+    // Negative feedback rule
+    rule negative_feedback {
+        lhs {
+            node activator :protein [activity>0.6];
+            node inhibitor :protein;
+        }
+        rhs {
+            edge: activator -> inhibitor [interaction="upregulation"];
+            edge: inhibitor -> activator [interaction="degradation", negative=true];
+        }
+    }
+
+    // Conditional pathway based on stress level
+    if stress_level > 0.5 {
+        edge: ATM -> "effector2" [interaction="direct_activation", stress_dependent=true];
+    }
+
+    apply stress_response 1 times;
+    apply transcriptional_control 2 times;
+    apply negative_feedback 1 times;
 }

@@ -1,33 +1,81 @@
 graph quantum_circuit {
-    // Qubits
-    node q0 :qubit [state="0", position=0];
-    node q1 :qubit [state="0", position=1];
-    node q2 :qubit [state="0", position=2];
-    node q3 :qubit [state="0", position=3];
+    // Quantum register with dynamic properties
+    let n_qubits = 4;
+    let fidelity_base = 0.99;
 
-    // Quantum gates
+    for i in 0..n_qubits {
+        let fidelity = fidelity_base - i * 0.01;
+        node "q{i}" :qubit [
+            state="0",
+            fidelity=fidelity,
+            entangled=false,
+            high_fidelity=1
+        ];
+    }
+
+    // Create some quantum gates
     node H_gate :gate [type="Hadamard", creates_superposition=true];
     node CNOT_gate :gate [type="CNOT", entangling=true];
     node X_gate :gate [type="Pauli-X", operation="bit_flip"];
     node measure :gate [type="measurement", collapses_state=true];
 
-    // Circuit connections - time flows left to right
-    edge: q0 -> H_gate [time=1, operation="apply"];
-    edge: H_gate -> q0 [time=1, result="superposition"];
+    // Basic quantum operations
+    edge: "q0" -> H_gate [operation="apply"];
+    edge: H_gate -> "q0" [result="superposition"];
+    edge: "q1" -> CNOT_gate [operation="control"];
+    edge: "q0" -> CNOT_gate [operation="target"];
 
-    edge: q1 -> CNOT_gate [time=2, operation="control"];
-    edge: q0 -> CNOT_gate [time=2, operation="target"];
-    edge: CNOT_gate -> q0 [time=2, result="entangled"];
-    edge: CNOT_gate -> q1 [time=2, result="entangled"];
+    // Compact gate generation
+    generate complete {
+        gate_types: "H_CNOT_X_measure";
+        error_correction: true;
+        topology: "linear";
+    }
 
-    edge: q2 -> X_gate [time=3, operation="apply"];
-    edge: X_gate -> q2 [time=3, result="flipped"];
+    // Error correction rule
+    rule error_correction {
+        lhs {
+            node q1 :qubit [high_fidelity=0];
+            node q2 :qubit [high_fidelity=1];
+            node q3 :qubit [high_fidelity=1];
+        }
+        rhs {
+            node syndrome :qubit [type="ancilla"];
+            edge: q1 -> syndrome [operation="parity_check"];
+            edge: q2 -> syndrome [operation="parity_check"];
+            edge correction: syndrome -> q1 [operation="bit_flip"];
+        }
+    }
 
-    edge: q3 -> measure [time=4, operation="measure"];
-    edge: measure -> q3 [time=4, result="classical_bit"];
+    // Entanglement rule
+    rule create_entanglement {
+        lhs {
+            node ctrl :qubit [state="1", entangled=false];
+            node target :qubit [entangled=false];
+        }
+        rhs {
+            edge: ctrl -> target [gate="CNOT", creates_entanglement=true];
+            node ctrl :qubit [entangled=true];
+            node target :qubit [entangled=true];
+        }
+    }
 
-    // Quantum connectivity constraints
-    edge: q0 -- q1 [type="physical_connection", fidelity=0.99];
-    edge: q1 -- q2 [type="physical_connection", fidelity=0.98];
-    edge: q2 -- q3 [type="physical_connection", fidelity=0.97];
+    // Measurement collapse rule
+    rule measurement_collapse {
+        lhs {
+            node q :qubit [high_fidelity=1];
+        }
+        rhs {
+            edge: q -> q [operation="measure", result_bit=1];
+        }
+    }
+
+    // Conditional gate applications
+    if n_qubits > 3 {
+        edge: "q3" -> measure [operation="final_measurement"];
+    }
+
+    apply error_correction 2 times;
+    apply create_entanglement 1 times;
+    apply measurement_collapse 1 times;
 }

@@ -1,29 +1,101 @@
 graph toroidal_mesh {
     let rows = 6;
     let cols = 6;
+    let congestion_threshold = 0.7;
 
-    // Create the nodes
+    // Create mesh nodes with traffic properties
     for i in 0..rows {
         for j in 0..cols {
-            node "n{i}_{j}" :lattice [row=i, col=j, type="2d_torus"];
+            let traffic = (i + j) * 0.1;
+            node "n{i}_{j}" :router [
+                row=i,
+                col=j,
+                traffic=traffic,
+                congested=0,
+                high_traffic=0
+            ];
         }
     }
 
-    // Create the horizontal edges
+    // Horizontal connections (with wrap-around)
     for i in 0..rows {
         for j in 0..cols {
-            if j + 1 < cols {
-                edge: "n{i}_{j}" -> "n{i}_{j+1}" [direction="horizontal"];
-            }
+            let next_j = (j + 1) % cols;
+            let utilization = j * 0.1;
+            edge: "n{i}_{j}" -- "n{i}_{next_j}" [
+                direction="horizontal",
+                capacity=1.0,
+                utilization=utilization
+            ];
         }
     }
 
-    // Create the vertical edges
+    // Vertical connections (with wrap-around)
     for i in 0..rows {
         for j in 0..cols {
-            if i + 1 < rows {
-                edge: "n{i}_{j}" -> "n{i+1}_{j}" [direction="vertical"];
-            }
+            let next_i = (i + 1) % rows;
+            let utilization = i * 0.1;
+            edge: "n{i}_{j}" -- "n{next_i}_{j}" [
+                direction="vertical",
+                capacity=1.0,
+                utilization=utilization
+            ];
         }
     }
+
+    // Mesh topology generator with wrap-around
+    generate complete {
+        dimensions_rows: rows;
+        dimensions_cols: cols;
+        wrap_around: true;
+        link_capacity: 1.0;
+    }
+
+    // Traffic balancing rule
+    rule balance_traffic {
+        lhs {
+            node congested :router [high_traffic=1];
+            node neighbor :router [high_traffic=0];
+            edge: congested -- neighbor;
+        }
+        rhs {
+            edge: congested -> neighbor [operation="offload", amount=0.2];
+            node congested :router [traffic=0.5];
+            node neighbor :router [traffic=0.4];
+        }
+    }
+
+    // Adaptive routing rule
+    rule adaptive_routing {
+        lhs {
+            edge link: A -- B [utilization>0.6];
+        }
+        rhs {
+            edge link: A -- B [
+                priority="low",
+                alternate_route=true,
+                weight=1.2
+            ];
+        }
+    }
+
+    // Route optimization rule
+    rule optimize_routes {
+        lhs {
+            node router :router [traffic>0.5];
+        }
+        rhs {
+            node router :router [optimized=true, priority="high"];
+        }
+    }
+
+    // Conditional high-capacity links for busy nodes
+    if rows > 5 {
+        edge: "n0_0" -- "n2_2" [type="express_link", capacity=2.0];
+        edge: "n1_1" -- "n3_3" [type="express_link", capacity=2.0];
+    }
+
+    apply balance_traffic 2 times;
+    apply adaptive_routing 1 times;
+    apply optimize_routes 1 times;
 }

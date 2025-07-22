@@ -1,45 +1,87 @@
 graph neural_network {
-    // Input layer
+    // Compact layer generation with arithmetic
     let input_size = 4;
+    let hidden_size = 6;
+    let output_size = 3;
+
+    // Input layer
     for i in 0..input_size {
-        node "input{i}" :neuron [layer="input", activation="linear"];
+        node "L0N{i}" :neuron [
+            layer=0,
+            activation="linear",
+            has_bias=false
+        ];
     }
 
     // Hidden layer
-    let hidden_size = 6;
     for i in 0..hidden_size {
-        node "hidden{i}" :neuron [layer="hidden", activation="relu"];
+        node "L1N{i}" :neuron [
+            layer=1,
+            activation="relu",
+            has_bias=true
+        ];
     }
 
     // Output layer
-    let output_size = 3;
     for i in 0..output_size {
-        node "output{i}" :neuron [layer="output", activation="softmax"];
+        node "L2N{i}" :neuron [
+            layer=2,
+            activation="softmax",
+            has_bias=true
+        ];
     }
 
-    // Connect input to hidden layer
+    // Connect layers with computed weights
     for i in 0..input_size {
         for j in 0..hidden_size {
-            edge: "input{i}" -> "hidden{j}" [weight=0.5, type="synapse"];
+            let weight = 0.5 + i * 0.1;
+            edge: "L0N{i}" -> "L1N{j}" [weight=weight, type="synapse"];
         }
     }
 
-    // Connect hidden to output layer
+    // Connect hidden to output layers
     for i in 0..hidden_size {
         for j in 0..output_size {
-            edge: "hidden{i}" -> "output{j}" [weight=0.3, type="synapse"];
+            let weight = 0.3 + j * 0.1;
+            edge: "L1N{i}" -> "L2N{j}" [weight=weight, type="synapse"];
         }
     }
 
-    // Add bias neurons
-    node bias_hidden :neuron [type="bias", value=1.0];
-    node bias_output :neuron [type="bias", value=1.0];
-
-    for i in 0..hidden_size {
-        edge: bias_hidden -> "hidden{i}" [weight=0.1, type="bias"];
+    // Network topology generator
+    generate complete {
+        layers: 3;
+        connectivity: "dense";
+        weight_init: "xavier";
     }
 
-    for i in 0..output_size {
-        edge: bias_output -> "output{i}" [weight=0.1, type="bias"];
+    // Weight strengthening rule for active paths
+    rule strengthen_paths {
+        lhs {
+            node A :neuron [activation="relu"];
+            node B :neuron;
+            edge: A -> B;
+        }
+        rhs {
+            edge: A -> B [weight=0.8, learning_rate=0.01, strengthened=true];
+        }
     }
+
+    // Bias node creation rule
+    rule add_bias {
+        lhs {
+            node N :neuron [has_bias=true];
+        }
+        rhs {
+            node "bias_{N}" :neuron [type="bias", value=1.0];
+            edge: "bias_{N}" -> N [weight=0.1, type="bias"];
+        }
+    }
+
+    // Conditional layer connections
+    if hidden_size > 5 {
+        edge: "L1N0" -> "L2N0" [weight=0.9, priority="high"];
+    }
+
+    apply strengthen_paths 2 times;
+    apply add_bias 1 times;
 }
