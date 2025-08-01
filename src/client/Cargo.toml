@@ -6,7 +6,7 @@ license.workspace = true
 description = "Frontend client for graph_generation_language"
 
 [dependencies]
-graph_generation_language = { path = "../lib", version = "0.0.4"  }
+graph_generation_language = { path = "../lib", version = "0.0.5" }
 console_error_panic_hook = "0.1.7"
 wasm-bindgen = "0.2.100"
 web-sys = { version = "0.3.77", features = ["Window", "Document", "HtmlElement", "Text", "console"] }
