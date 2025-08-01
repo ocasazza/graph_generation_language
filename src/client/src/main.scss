@@ -110,6 +110,19 @@ body {
   margin-bottom: 12px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.example-dropdown-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.example-dropdown-right {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -141,4 +154,123 @@ body {
   background-color: #1e1e1e;
   color: wheat;
   padding: 6px;
+}
+
+/* Tab Styles */
+.output-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-tabs {
+  display: flex;
+  background-color: #2d2d2d;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #444;
+}
+
+.tab-button {
+  background-color: transparent;
+  color: #888;
+  border: none;
+  padding: 12px 20px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab-button:hover {
+  color: wheat;
+  background-color: rgba(245, 222, 179, 0.1);
+}
+
+.tab-button.active {
+  color: wheat;
+  background-color: #1e1e1e;
+  border-bottom: 2px solid #51cf66;
+}
+
+.output-content {
+  flex: 1;
+  background-color: #1e1e1e;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+/* Graph Visualizer Styles */
+.graph-visualizer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  color: wheat;
+  padding: 10px;
+}
+
+.graph-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #2d2d2d;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.graph-controls label {
+  color: wheat;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.graph-controls select,
+.graph-controls button {
+  background-color: #1e1e1e;
+  color: wheat;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.graph-controls button:hover {
+  background-color: #333;
+}
+
+.node-info {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(45, 45, 45, 0.95);
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px;
+  max-width: 300px;
+  color: wheat;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.node-info h4 {
+  margin: 0 0 8px 0;
+  color: #51cf66;
+}
+
+.node-info p {
+  margin: 4px 0;
+}
+
+.node-info pre {
+  background-color: #1e1e1e;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  max-height: 150px;
+  overflow-y: auto;
 }

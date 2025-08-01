@@ -1,8 +1,10 @@
 mod monaco_editor;
+mod graph_visualizer;
 #[cfg(test)]
 mod example_tests;
 
 use monaco_editor::MonacoEditor;
+use graph_visualizer::{GraphVisualizerComponent, LayoutAlgorithm};
 use yew::prelude::*;
 use graph_generation_language::GGLEngine;
 use wasm_bindgen::JsCast;
@@ -15,17 +17,32 @@ pub struct GGLExample {
     code: &'static str,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum OutputTab {
+    Json,
+    Visualization,
+}
+
 pub struct App {
     ggl_input: String,
     json_output: Option<Result<String, String>>,
     examples: Vec<GGLExample>,
     selected_example: usize,
+    active_tab: OutputTab,
+    // Visualization state
+    layout_algorithm: LayoutAlgorithm,
+    simulation_running: bool,
 }
 
 pub enum Msg {
     EditorChanged(String),
     Generate,
     ExampleSelected(usize),
+    TabChanged(OutputTab),
+    // Visualization messages
+    LayoutChanged(LayoutAlgorithm),
+    ToggleSimulation,
+    ResetView,
 }
 
 fn load_examples() -> Vec<GGLExample> {
@@ -86,6 +103,9 @@ impl Component for App {
             json_output: None,
             examples,
             selected_example: 0,
+            active_tab: OutputTab::Json,
+            layout_algorithm: LayoutAlgorithm::ForceDirected,
+            simulation_running: true,
         }
     }
 
@@ -128,6 +148,22 @@ impl Component for App {
                 }
                 true
             }
+            Msg::TabChanged(tab) => {
+                self.active_tab = tab;
+                true
+            }
+            Msg::LayoutChanged(layout) => {
+                self.layout_algorithm = layout;
+                true
+            }
+            Msg::ToggleSimulation => {
+                self.simulation_running = !self.simulation_running;
+                true
+            }
+            Msg::ResetView => {
+                // Reset view will be handled by the visualizer component
+                true
+            }
         }
     }
 
@@ -144,16 +180,70 @@ impl Component for App {
         html! {
             <div class="ggl-editor-container">
                 <div class="example-dropdown-container">
-                    <label for="example-select">{"Select Example: "}</label>
-                    <select id="example-select" onchange={on_example_change} value={self.selected_example.to_string()}>
-                        { for self.examples.iter().enumerate().map(|(index, example)| {
+                    <div class="example-dropdown-left">
+                        <label for="example-select">{"Select Example: "}</label>
+                        <select id="example-select" onchange={on_example_change} value={self.selected_example.to_string()}>
+                            { for self.examples.iter().enumerate().map(|(index, example)| {
+                                html! {
+                                    <option value={index.to_string()} selected={index == self.selected_example}>
+                                        {example.name}
+                                    </option>
+                                }
+                            })}
+                        </select>
+                    </div>
+                    <div class="example-dropdown-right">
+                        {if self.active_tab == OutputTab::Visualization {
                             html! {
-                                <option value={index.to_string()} selected={index == self.selected_example}>
-                                    {example.name}
-                                </option>
+                                <>
+                                    <label>{"Layout: "}</label>
+                                    <select onchange={ctx.link().callback(|e: Event| {
+                                        let target = e.target().unwrap();
+                                        let select = target.dyn_into::<web_sys::HtmlSelectElement>().unwrap();
+                                        let value = select.value();
+                                        match value.as_str() {
+                                            "Circle" => Msg::LayoutChanged(LayoutAlgorithm::Circle),
+                                            "Grid" => Msg::LayoutChanged(LayoutAlgorithm::Grid),
+                                            "Random" => Msg::LayoutChanged(LayoutAlgorithm::Random),
+                                            _ => Msg::LayoutChanged(LayoutAlgorithm::ForceDirected),
+                                        }
+                                    })}>
+                                        <option value="ForceDirected" selected={self.layout_algorithm == LayoutAlgorithm::ForceDirected}>{"Force Directed"}</option>
+                                        <option value="Circle" selected={self.layout_algorithm == LayoutAlgorithm::Circle}>{"Circle"}</option>
+                                        <option value="Grid" selected={self.layout_algorithm == LayoutAlgorithm::Grid}>{"Grid"}</option>
+                                        <option value="Random" selected={self.layout_algorithm == LayoutAlgorithm::Random}>{"Random"}</option>
+                                    </select>
+
+                                    {if self.layout_algorithm == LayoutAlgorithm::ForceDirected {
+                                        html! {
+                                            <button onclick={ctx.link().callback(|_| Msg::ToggleSimulation)}>
+                                                {if self.simulation_running { "⏸ Pause" } else { "▶ Play" }}
+                                            </button>
+                                        }
+                                    } else {
+                                        html! {}
+                                    }}
+
+                                    <button onclick={ctx.link().callback(|_| Msg::ResetView)}>{"🔄 Reset View"}</button>
+                                </>
                             }
-                        })}
-                    </select>
+                        } else {
+                            html! {}
+                        }}
+
+                        <button
+                            class={if self.active_tab == OutputTab::Json { "tab-button active" } else { "tab-button" }}
+                            onclick={ctx.link().callback(|_| Msg::TabChanged(OutputTab::Json))}
+                        >
+                            {"📄 JSON"}
+                        </button>
+                        <button
+                            class={if self.active_tab == OutputTab::Visualization { "tab-button active" } else { "tab-button" }}
+                            onclick={ctx.link().callback(|_| Msg::TabChanged(OutputTab::Visualization))}
+                        >
+                            {"🎨 Visualization"}
+                        </button>
+                    </div>
                 </div>
                 <div class="ggl-editor-layout">
                     // Left panel - Editor wrapper
@@ -168,7 +258,7 @@ impl Component for App {
                     <div style="height: 100%; width: 12px;"></div>
                     // Right panel - Output wrapper
                     <div class="ggl-output-panel">
-                        {self.render_output()}
+                        {self.render_output(ctx)}
                     </div>
                 </div>
                 <button class="generate-btn" onclick={on_generate}>
@@ -180,7 +270,14 @@ impl Component for App {
 }
 
 impl App {
-    fn render_output(&self) -> Html {
+    fn render_output(&self, _ctx: &Context<Self>) -> Html {
+        match self.active_tab {
+            OutputTab::Json => self.render_json_output(),
+            OutputTab::Visualization => self.render_visualization(),
+        }
+    }
+
+    fn render_json_output(&self) -> Html {
         let output_content = match &self.json_output {
             Some(Ok(json)) => json.clone(),
             Some(Err(error)) => format!("// Error:\n{error}"),
@@ -194,6 +291,22 @@ impl App {
                 language="json"
                 theme="vs-dark"
                 readonly=true
+            />
+        }
+    }
+
+    fn render_visualization(&self) -> Html {
+        let graph_json = match &self.json_output {
+            Some(Ok(json)) => Some(json.clone()),
+            _ => None,
+        };
+
+        html! {
+            <GraphVisualizerComponent
+                graph_json={graph_json}
+                layout_algorithm={self.layout_algorithm}
+                simulation_running={self.simulation_running}
+                reset_view={false}
             />
         }
     }
