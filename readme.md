@@ -92,3 +92,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Rust](https://www.rust-lang.org/) and [Pest](https://pest.rs/) parser
 - [Zulip](https://nixos.zulipchat.com/#narrow/stream/413950-nix)
 - [nixos.wiki: Packaging Rust projects with nix](https://nixos.wiki/wiki/Rust#Packaging_Rust_projects_with_nix)
+
+
+## Other Refs
+- https://thma.github.io/posts/2021-12-27-Implementing-a-functional-language-with-Graph-Reduction.html
