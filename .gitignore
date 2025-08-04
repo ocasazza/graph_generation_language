@@ -8,3 +8,8 @@ result*
 # configs
 .direnv
 .env
+
+# demo build files
+src/browser_demo/node_modules
+src/browser_demo/package-lock.json
+src/browser_demo/.parcel-cache
