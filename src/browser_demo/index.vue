@@ -64,8 +64,8 @@ const formatExampleName = (name) => {
 // Initialize GGL WASM module
 const initializeGGL = async () => {
   try {
-    const init = await import('./pkg/ggl_wasm.js').then(m => m.default);
-    GGL = await import('./pkg/ggl_wasm.js');
+    const init = await import('ggl_wasm').then(m => m.default);
+    GGL = await import('ggl_wasm');
     await init();
     if (outputEditor) {
       outputEditor.setValue('GGL WASM module loaded successfully. Ready to generate graphs!');

@@ -7,8 +7,9 @@
     "process": "^0.11.10"
   },
   "dependencies": {
-    "vue": "^3.5.18",
-    "monaco-editor": "^0.45.0"
+    "ggl_wasm": "file:../../artifacts/ggl_wasm/b079fqadq55w7rpxsp1nd3ad4rxy21km-ggl_wasm-0.0.4/pkg",
+    "monaco-editor": "^0.45.0",
+    "vue": "^3.5.18"
   },
   "scripts": {
     "start": "parcel index.html",

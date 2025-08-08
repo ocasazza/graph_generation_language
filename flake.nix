@@ -229,7 +229,7 @@
             export RUST_SRC_PATH="${rustToolchainFor pkgs}/lib/rustlib/src/rust/library";
           '';
           # Extra inputs can be added here; cargo and rustc are provided by default.
-          packages = [
+          packages = [a
             pkgs.act
             pkgs.rust-analyzer
             pkgs.rustup

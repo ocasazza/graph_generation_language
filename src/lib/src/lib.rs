@@ -1619,9 +1619,21 @@ fn collect_dependencies(expr: &Expression, deps: &mut Vec<String>) {
                 deps.push(name.clone());
             }
         }
-        Expression::ChainExpression { base, chain: _ } => {
+        Expression::ChainExpression { base, chain } => {
             collect_dependencies(base, deps);
-            // For simplicity, we're not analyzing chain dependencies
+            // Also collect dependencies from chain method arguments
+            for item in chain {
+                match item {
+                    ChainItem::MethodCall { args, .. } | ChainItem::BuiltinCall { args, .. } => {
+                        for arg in args {
+                            collect_dependencies(arg, deps);
+                        }
+                    }
+                    ChainItem::PropertyAccess { .. } => {
+                        // Property access doesn't introduce dependencies
+                    }
+                }
+            }
         }
         Expression::ArrayExpression(elements) => {
             for elem in elements {
@@ -1757,7 +1769,33 @@ mod lambda_destructuring_tests {
         "#;
 
         let result = engine.generate_from_ggl(code);
-        println!("Destructuring test result: {result:?}");
         assert!(result.is_ok(), "Lambda destructuring failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_toroidal_mesh_simple() {
+        let mut engine = GGLEngine::new();
+        let code = r#"
+        {
+            nodes: range("0..4").map(i => Node {
+                id: `n${i}`,
+                meta: { index: i }
+            }),
+
+            edges: range("0..3").map(i => Edge {
+                source: `n${i}`,
+                target: `n${i + 1}`,
+                meta: { type: "simple" }
+            })
+        }
+        "#;
+
+        let result = engine.generate_from_ggl(code);
+        assert!(result.is_ok(), "Simple toroidal test failed: {:?}", result.err());
+        if let Ok(json_str) = result {
+            let graph: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+            let edges = graph.get("edges").unwrap().as_array().unwrap();
+            assert!(edges.len() > 0, "Should have some edges");
+        }
     }
 }
