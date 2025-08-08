@@ -18,9 +18,5 @@ publish = false
 name = "ggl_cli"
 publish = false
 
-[[package]]
-name = "ggl_client"
-publish = false
-
 [changelog]
 protect_breaking_commits = true # always include commits with breaking changes in the changelog

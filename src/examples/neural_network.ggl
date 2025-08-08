@@ -1,0 +1,115 @@
+{
+  // Network architecture constants
+  input_size: 4,
+  hidden_size: 6,
+  output_size: 3,
+
+  // Weight strengthening transformation for active paths
+  strengthen_paths: (graph) => ({
+    ...graph,
+    edges: graph.edges.map(edge => {
+      // Find source node and check if it has relu activation
+      let source_node = graph.nodes.find(n => n.id === edge.source);
+      if (source_node && source_node.meta.activation === "relu") {
+        return {
+          ...edge,
+          meta: {
+            ...edge.meta,
+            weight: 0.8,
+            learning_rate: 0.01,
+            strengthened: true
+          }
+        };
+      }
+      return edge;
+    })
+  }),
+
+  // Bias node addition transformation
+  add_bias: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.concat(
+      graph.nodes
+        .filter(n => n.meta.has_bias === true)
+        .map(n => Node {
+          id: `bias_${n.id}`,
+          meta: { type: "bias", value: 1.0, node_type: "neuron" }
+        })
+    ),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.has_bias === true)
+        .map(n => Edge {
+          source: `bias_${n.id}`,
+          target: n.id,
+          meta: { weight: 0.1, type: "bias" }
+        })
+    )
+  }),
+
+  // Generate all network nodes (input, hidden, output layers)
+  nodes: [
+    // Input layer (L0)
+    ...range("0..4").map(i => Node {
+      id: `L0N${i}`,
+      meta: {
+        layer: 0,
+        activation: "linear",
+        has_bias: false,
+        node_type: "neuron"
+      }
+    }),
+    // Hidden layer (L1)
+    ...range("0..6").map(i => Node {
+      id: `L1N${i}`,
+      meta: {
+        layer: 1,
+        activation: "relu",
+        has_bias: true,
+        node_type: "neuron"
+      }
+    }),
+    // Output layer (L2)
+    ...range("0..3").map(i => Node {
+      id: `L2N${i}`,
+      meta: {
+        layer: 2,
+        activation: "softmax",
+        has_bias: true,
+        node_type: "neuron"
+      }
+    })
+  ],
+
+  // Generate network connections and apply transformations
+  edges: [
+    // Input to hidden layer connections
+    ...range("0..4").map(i =>
+      range("0..6").map(j => Edge {
+        source: `L0N${i}`,
+        target: `L1N${j}`,
+        meta: {
+          weight: 0.5 + i * 0.1,
+          type: "synapse"
+        }
+      })
+    ).flat(),
+    // Hidden to output layer connections
+    ...range("0..6").map(i =>
+      range("0..3").map(j => Edge {
+        source: `L1N${i}`,
+        target: `L2N${j}`,
+        meta: {
+          weight: 0.3 + j * 0.1,
+          type: "synapse"
+        }
+      })
+    ).flat(),
+    // High priority connection (conditional)
+    Edge {
+      source: "L1N0",
+      target: "L2N0",
+      meta: { weight: 0.9, priority: "high" }
+    }
+  ].pipe(strengthen_paths, 2).pipe(add_bias, 1)
+}

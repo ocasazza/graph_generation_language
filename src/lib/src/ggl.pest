@@ -1,54 +1,127 @@
-// --- Whitespace and Comments (implicitly skipped) ---
+// GGL v0.3.0 Grammar - JSON-superset with functional programming features
+
+// --- Whitespace and Comments ---
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 COMMENT = _{
     "//" ~ (!NEWLINE ~ ANY)* |
     "/*" ~ (!"*/" ~ ANY)* ~ "*/"
 }
 
-// --- Top Level ---
-file = { SOI ~ "graph" ~ identifier? ~ "{" ~ statement* ~ "}" ~ EOI }
+// --- Root Structure ---
+file = { SOI ~ expression ~ EOI }
 
-// --- Statements ---
-statement = _{ let_declaration | for_loop | node_declaration | edge_declaration | generate_statement | rule_definition | apply_statement }
+// --- Expression Hierarchy (proper precedence) ---
+expression = {
+    template_literal |
+    function_definition |
+    lambda_expression |
+    if_expression |
+    spread_expression |
+    logical_expression
+}
 
-// Variable Declaration
-let_declaration = { "let" ~ identifier ~ "=" ~ expression ~ ";" }
+if_expression = { "if" ~ "(" ~ expression ~ ")" ~ block_expression ~ ("else" ~ block_expression)? }
 
-// For Loop
-for_loop = { "for" ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "{" ~ statement* ~ "}" }
+logical_expression = { comparison_expression ~ (logical_op ~ comparison_expression)* }
+logical_op = { "&&" | "||" }
 
-// Node and Edge Declarations
-node_declaration = { "node" ~ expression ~ (":" ~ expression)? ~ attributes? ~ ";" }
-edge_declaration = { "edge" ~ edge_id? ~ expression ~ edge_operator ~ expression ~ attributes? ~ ";" }
-edge_id = { expression ~ ":" | ":" }
-edge_operator = { "->" | "--" }
+comparison_expression = { additive_expression ~ (comparison_operator ~ additive_expression)* }
 
-// Generators and Rules
-generate_statement = { "generate" ~ identifier ~ "{" ~ generator_param* ~ "}" }
-generator_param = { identifier ~ ":" ~ expression ~ ";" }
+additive_expression = { multiplicative_expression ~ (add_op ~ multiplicative_expression)* }
 
-rule_definition = { "rule" ~ identifier ~ "{" ~ lhs ~ rhs ~ "}" }
-lhs = { "lhs" ~ "{" ~ pattern_statement* ~ "}" }
-rhs = { "rhs" ~ "{" ~ pattern_statement* ~ "}" }
-pattern_statement = { node_declaration | edge_declaration }
+multiplicative_expression = { postfix_expression ~ (mul_op ~ postfix_expression)* }
 
-apply_statement = { "apply" ~ identifier ~ expression ~ "times" ~ ";" }
+postfix_expression = { primary_expression ~ (chain_segment | range_op)* }
+range_op = { ".." ~ primary_expression }
 
-// --- Components ---
-attributes = { "[" ~ (attribute_pair ~ ("," ~ attribute_pair)*)? ~ "]" }
-attribute_pair = { identifier ~ "=" ~ expression }
+primary_expression = {
+    range_expr |
+    builtin_call |
+    tagged_object |
+    object_expression |
+    array_expression |
+    "(" ~ expression ~ ")" |
+    literal |
+    identifier
+}
 
-// --- Expressions and Primitives ---
-expression = { literal | formatted_string | identifier }
+// --- Object Structure ---
+object_expression = { "{" ~ (object_item ~ ("," ~ object_item)*)? ~ ","? ~ "}" }
+object_item = { spread_expression | object_pair }
+object_pair = { (string_literal | identifier) ~ ":" ~ expression }
 
-literal = _{ string | float | integer | boolean }
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-string = { "\"" ~ (ASCII_ALPHANUMERIC | " " | "_" | "-")* ~ "\"" }
-integer = @{ "-"? ~ ASCII_DIGIT+ }
-float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+// --- Tagged Constructors ---
+tagged_object = { tag_name ~ "{" ~ (object_pair ~ ("," ~ object_pair)*)? ~ ","? ~ "}" }
+tag_name = { "Node" | "Edge" }
+
+// --- Function Definitions ---
+function_definition = { identifier ~ ":" ~ lambda_expression }
+lambda_expression = {
+    // Multiple parameters or empty params - require parentheses
+    ("(" ~ lambda_param_list ~ ")" ~ "=>" ~ lambda_body) |
+    // Single parameter - parentheses optional
+    (lambda_param ~ "=>" ~ lambda_body)
+}
+lambda_param_list = { (lambda_param ~ ("," ~ lambda_param)*)? }
+lambda_param = { array_destructure | identifier }
+array_destructure = { "[" ~ identifier ~ ("," ~ identifier)* ~ "]" }
+lambda_body = { block_expression | expression }
+block_expression = { "{" ~ (statement | expression)* ~ "}" }
+statement = { (variable_declaration | if_statement | return_statement | expression) ~ ";" }
+variable_declaration = { "let" ~ identifier ~ "=" ~ expression }
+if_statement = { "if" ~ "(" ~ expression ~ ")" ~ block_expression ~ ("else" ~ block_expression)? }
+return_statement = { "return" ~ expression }
+
+// --- Method Chaining and Property Access ---
+chain_expression = { chainable_expression ~ chain_segment+ }
+chainable_expression = {
+    builtin_call |
+    "(" ~ expression ~ ")" |
+    identifier
+}
+chain_segment = { "." ~ (method_call | builtin_call | identifier) }
+method_call = { identifier ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
+
+// --- Built-in Functions ---
+builtin_call = { builtin_name ~ "(" ~ (builtin_args)? ~ ")" }
+builtin_name = {
+    "range" | "combinations" | "include" |
+    "map" | "filter" | "concat" | "pipe" | "reduce" | "forEach" |
+    "find" | "some" | "every" | "slice" | "sort" | "reverse" |
+    "length" | "toString" | "count"
+}
+builtin_args = { expression ~ ("," ~ expression)* }
+
+// --- Range Expression ---
+range_expr = { range_term ~ ".." ~ range_term }
+range_term = { integer | float | identifier | "(" ~ expression ~ ")" }
+
+// --- Template Literals ---
+template_literal = { "`" ~ (template_part | template_var)* ~ "`" }
+template_part = @{ (!("${") ~ !"`" ~ ANY)+ }
+template_var = { "${" ~ expression ~ "}" }
+
+// --- Array Literals ---
+array_expression = { "[" ~ (expression ~ ("," ~ expression)*)? ~ ","? ~ "]" }
+
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" | "%" }
+comparison_operator = { "!==" | "===" | "<=" | ">=" | "==" | "!=" | "<" | ">" }
+
+// --- Literals ---
+literal = _{ string_literal | float | integer | boolean | null }
+string_literal = { "\"" ~ (string_char | escape_sequence)* ~ "\"" }
+string_char = { !("\"" | "\\") ~ ANY }
+escape_sequence = { "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | unicode_escape) }
+unicode_escape = { "u" ~ ASCII_HEX_DIGIT{4} }
+
+integer = @{ "-"? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) }
+float = @{ "-"? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ "." ~ ASCII_DIGIT+ ~ (("e" | "E") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
 boolean = @{ "true" | "false" }
+null = @{ "null" }
 
-// Formatted String for dynamic identifiers: "node_{i}"
-formatted_string = { "\"" ~ (string_part | var_in_string)* ~ "\"" }
-string_part = @{ ( (!("{") ~ !("\"") ~ ANY )+ ) }
-var_in_string = { "{" ~ identifier ~ "}" }
+// --- Identifiers ---
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// --- Spread Operator ---
+spread_expression = { "..." ~ expression }

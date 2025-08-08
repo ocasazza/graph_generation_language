@@ -49,7 +49,6 @@ For more, see nix apps:
 ├───────────────────────────────┼─────────────┤
 │ graphGenerationLanguageCli    │ N/A         │
 │ graphGenerationLanguageWasm   │ N/A         │
-│ graphGenerationLanguageClient │ N/A         │
 │ default                       │ N/A         │
 ╰───────────────────────────────┴─────────────╯
 

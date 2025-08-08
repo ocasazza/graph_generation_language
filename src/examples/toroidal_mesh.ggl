@@ -1,0 +1,77 @@
+{
+  // Mesh topology constants
+  rows: 6,
+  cols: 6,
+  congestion_threshold: 0.7,
+
+  // Traffic balancing transformation
+  balance_traffic: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.high_traffic === 1) {
+        return { ...node, meta: { ...node.meta, traffic: 0.5 } };
+      }
+      if (node.meta.high_traffic === 0 && node.meta.traffic < 0.6) {
+        return { ...node, meta: { ...node.meta, traffic: 0.4 } };
+      }
+      return node;
+    }),
+    edges: graph.edges
+  }),
+
+  // Generate mesh nodes (6x6 grid)
+  nodes: range("0..36").map(idx => Node {
+    id: `n${(idx / 6).floor()}_${idx % 6}`,
+    meta: {
+      row: (idx / 6).floor(),
+      col: idx % 6,
+      traffic: ((idx / 6).floor() + (idx % 6)) * 0.1,
+      congested: 0,
+      high_traffic: if (((idx / 6).floor() + (idx % 6)) * 0.1 > 0.7) { 1 } else { 0 },
+      node_type: "router"
+    }
+  }),
+
+  // Generate horizontal connections
+  horizontal_edges: range("0..6").map(i =>
+    range("0..6").map(j => Edge {
+      source: `n${i}_${j}`,
+      target: `n${i}_${(j + 1) % 6}`,
+      meta: {
+        direction: "horizontal",
+        capacity: 1.0,
+        utilization: j * 0.1
+      }
+    })
+  ).flat(),
+
+  // Generate vertical connections
+  vertical_edges: range("0..6").map(i =>
+    range("0..6").map(j => Edge {
+      source: `n${i}_${j}`,
+      target: `n${(i + 1) % 6}_${j}`,
+      meta: {
+        direction: "vertical",
+        capacity: 1.0,
+        utilization: i * 0.1
+      }
+    })
+  ).flat(),
+
+  // Express links
+  express_edges: [
+    Edge {
+      source: "n0_0",
+      target: "n2_2",
+      meta: { type: "express_link", capacity: 2.0 }
+    },
+    Edge {
+      source: "n1_1",
+      target: "n3_3",
+      meta: { type: "express_link", capacity: 2.0 }
+    }
+  ],
+
+  // Combine all edges
+  edges: horizontal_edges.concat(vertical_edges).concat(express_edges).pipe(balance_traffic, 1)
+}

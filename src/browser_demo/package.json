@@ -1,0 +1,22 @@
+{
+  "devDependencies": {
+    "@parcel/transformer-inline-string": "^2.15.4",
+    "@parcel/transformer-vue": "^2.15.4",
+    "parcel": "^2.15.4",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10"
+  },
+  "dependencies": {
+    "ggl_wasm": "file:../../artifacts/ggl_wasm/b079fqadq55w7rpxsp1nd3ad4rxy21km-ggl_wasm-0.0.4/pkg",
+    "monaco-editor": "^0.45.0",
+    "vue": "^3.5.18"
+  },
+  "scripts": {
+    "start": "parcel index.html",
+    "build": "parcel build index.html"
+  },
+  "name": "browser_demo",
+  "version": "0.0.1",
+  "description": "A demo for the GGL browser integration",
+  "source": "index.html"
+}
