@@ -1,0 +1,177 @@
+{
+  // Signaling pathway constants
+  stress_level: 1.0,
+  cell_cycle_phase: "G1",
+  stress_active: true,
+
+  // Stress activation transformation
+  stress_response: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.sensor === true && node.meta.stress_responsive === true) {
+        // Find critical target proteins and activate them
+        return node;
+      }
+      if (node.meta.critical === true) {
+        return {
+          ...node,
+          meta: {
+            ...node.meta,
+            phosphorylated: true,
+            activity: 0.8
+          }
+        };
+      }
+      return node;
+    }),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.sensor === true && n.meta.stress_responsive === true)
+        .map(sensor => {
+          let targets = graph.nodes.filter(n => n.meta.critical === true);
+          return targets.map(target => Edge {
+            source: sensor.id,
+            target: target.id,
+            meta: { interaction: "phosphorylation" }
+          });
+        })
+        .flat()
+    )
+  }),
+
+  // Transcriptional control transformation
+  transcriptional_control: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.node_type === "effector" && node.meta.p53_dependent === true) {
+        return {
+          ...node,
+          meta: {
+            ...node.meta,
+            activity: 0.5
+          }
+        };
+      }
+      return node;
+    }),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.phosphorylated === true)
+        .map(tf => {
+          let targets = graph.nodes.filter(n => n.meta.node_type === "effector" && n.meta.p53_dependent === true);
+          return targets.map(target => Edge {
+            source: tf.id,
+            target: target.id,
+            meta: { interaction: "transcription", strength: 0.6 }
+          });
+        })
+        .flat()
+    )
+  }),
+
+  // Negative feedback loop transformation
+  negative_feedback: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      combinations(graph.nodes, 2)
+        .filter(([activator, inhibitor]) => activator.meta.activity > 0.6)
+        .map(([activator, inhibitor]) => [
+          Edge {
+            source: activator.id,
+            target: inhibitor.id,
+            meta: { interaction: "upregulation" }
+          },
+          Edge {
+            source: inhibitor.id,
+            target: activator.id,
+            meta: { interaction: "degradation", negative: true }
+          }
+        ])
+        .flat()
+    )
+  }),
+
+  // Define core signaling proteins
+  nodes: [
+    Node {
+      id: "p53",
+      meta: {
+        activity: 0.0,
+        phosphorylated: false,
+        critical: true,
+        node_type: "protein"
+      }
+    },
+    Node {
+      id: "MDM2",
+      meta: {
+        activity: 0.2,
+        bound_p53: false,
+        node_type: "protein"
+      }
+    },
+    Node {
+      id: "ATM",
+      meta: {
+        activity: 1.0,
+        sensor: true,
+        stress_responsive: true,
+        node_type: "protein"
+      }
+    }
+  ].concat(
+    // Downstream effector proteins
+    range("0..3").map(i => Node {
+      id: `effector${i}`,
+      meta: {
+        activity: 0.1 - i * 0.05,
+        p53_dependent: true,
+        index: i,
+        node_type: "effector"
+      }
+    })
+  ),
+
+  // Define protein interaction network and apply transformations
+  edges: [
+    // Basic protein interactions
+    Edge {
+      source: "ATM",
+      target: "p53",
+      meta: { interaction: "phosphorylation", activates: true }
+    },
+    Edge {
+      source: "p53",
+      target: "effector0",
+      meta: { interaction: "transcription", activates: true }
+    },
+    Edge {
+      source: "p53",
+      target: "effector1",
+      meta: { interaction: "transcription", activates: true }
+    },
+    Edge {
+      source: "MDM2",
+      target: "p53",
+      meta: { interaction: "ubiquitination", activates: false }
+    },
+    // Stress-dependent direct activation
+    Edge {
+      source: "ATM",
+      target: "effector2",
+      meta: { interaction: "direct_activation", stress_dependent: true }
+    }
+  ].concat(
+    // Additional pathway interactions (simulating generate complete)
+    combinations(["p53", "MDM2", "ATM"], 2)
+      .map(([a, b]) => Edge {
+        source: a,
+        target: b,
+        meta: {
+          pathway: "DNA_damage_response",
+          stress_level: 1.0,
+          feedback_loops: true
+        }
+      })
+  ).pipe(stress_response, 1).pipe(transcriptional_control, 2).pipe(negative_feedback, 1)
+}

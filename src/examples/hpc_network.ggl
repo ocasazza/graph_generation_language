@@ -1,0 +1,140 @@
+{
+  // Cluster configuration constants
+  cluster_size: 16,
+  load_threshold: 0.8,
+  network_tier: "infiniband",
+
+  // Load balancing transformation function
+  load_balance: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.type === "compute" && node.meta.load >= 0.8) {
+        return { ...node, meta: { ...node.meta, load: 0.5 } };
+      }
+      if (node.meta.type === "compute" && node.meta.available === 1 && node.meta.load < 0.8) {
+        return { ...node, meta: { ...node.meta, load: 0.6 } };
+      }
+      return node;
+    }),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.type === "compute" && n.meta.load >= 0.8)
+        .map(overloaded => Edge {
+          source: "scheduler",
+          target: overloaded.id,
+          meta: { operation: "migrate_job" }
+        })
+    )
+  }),
+
+  // Network optimization for GPU nodes
+  optimize_network: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      combinations(
+        graph.nodes.filter(n => n.meta.is_gpu === 1),
+        2
+      ).map(([a, b]) => Edge {
+        source: a.id,
+        target: b.id,
+        meta: { bandwidth: "400Gbps", priority: "high" }
+      })
+    )
+  }),
+
+  // Resource allocation function
+  allocate_resources: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.type === "compute" && n.meta.available === 1)
+        .map(requester => Edge {
+          source: requester.id,
+          target: "storage",
+          meta: { bandwidth: 200.0, allocation: true }
+        })
+    )
+  }),
+
+  // Define all cluster nodes
+  nodes: [
+    // Management layer
+    Node {
+      id: "scheduler",
+      meta: { type: "slurm", load: 0.0, node_type: "control" }
+    },
+    Node {
+      id: "storage",
+      meta: { type: "lustre", capacity: 1000.0, node_type: "control" }
+    }
+  ].concat(
+    // GPU compute nodes (0-7)
+    range("0..8").map(i => Node {
+      id: `node${i}`,
+      meta: {
+        tier: "gpu",
+        cores: 128,
+        load: i * 0.05,
+        available: 1,
+        is_gpu: 1,
+        type: "compute"
+      }
+    })
+  ).concat(
+    // CPU compute nodes (8-15)
+    range("8..16").map(i => Node {
+      id: `node${i}`,
+      meta: {
+        tier: "cpu",
+        cores: 64,
+        load: i * 0.05,
+        available: 1,
+        is_gpu: 0,
+        type: "compute"
+      }
+    })
+  ),
+
+  // Define cluster network topology and apply optimizations
+  edges: [
+    // Management connections
+    Edge {
+      source: "scheduler",
+      target: "node0",
+      meta: { type: "control", bandwidth: "10Gbps" }
+    },
+    Edge {
+      source: "storage",
+      target: "node0",
+      meta: { type: "storage", bandwidth: "100Gbps" }
+    },
+    Edge {
+      source: "scheduler",
+      target: "node8",
+      meta: { type: "control", bandwidth: "10Gbps" }
+    },
+    Edge {
+      source: "storage",
+      target: "node8",
+      meta: { type: "storage", bandwidth: "100Gbps" }
+    },
+    // High-performance inter-tier connection
+    Edge {
+      source: "node0",
+      target: "node8",
+      meta: { type: "inter_tier", bandwidth: "800Gbps" }
+    }
+  ].concat(
+    // Full mesh connections for high bandwidth
+    combinations(range("0..16").map(i => `node${i}`), 2)
+      .map(([a, b]) => Edge {
+        source: a,
+        target: b,
+        meta: {
+          topology: "fat_tree",
+          bandwidth: "200Gbps",
+          redundancy: 2
+        }
+      })
+  ).pipe(load_balance, 3).pipe(optimize_network, 2).pipe(allocate_resources, 1)
+}

@@ -1,0 +1,58 @@
+{
+  // Constants for the crystal structure
+  lattice_constant: 4.0,
+  rows: 3,
+  cols: 3,
+  layers: 2,
+
+  // Function to create bonding interactions between atoms
+  create_bonds: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      combinations(graph.nodes, 2)
+        .filter(([a, b]) => {
+          // Calculate distance between atoms
+          let dx = a.meta.x - b.meta.x;
+          let dy = a.meta.y - b.meta.y;
+          let dz = a.meta.z - b.meta.z;
+          let distance = (dx*dx + dy*dy + dz*dz).sqrt();
+          return distance <= 4.5; // Bond if within lattice spacing
+        })
+        .map(([a, b]) => Edge {
+          source: a.id,
+          target: b.id,
+          meta: {
+            bond_type: "covalent",
+            strength: 0.8,
+            length: (
+              (a.meta.x - b.meta.x).pow(2) +
+              (a.meta.y - b.meta.y).pow(2) +
+              (a.meta.z - b.meta.z).pow(2)
+            ).sqrt()
+          }
+        })
+    )
+  }),
+
+  // Generate crystal lattice nodes
+  nodes: range("0..18").map(i => {
+    let layer = (i / 9).floor();
+    let row = ((i % 9) / 3).floor();
+    let col = i % 3;
+
+    return Node {
+      id: `atom_${i}`,
+      meta: {
+        element: "Carbon",
+        x: col * 4.0,
+        y: row * 4.0,
+        z: layer * 4.0,
+        coordination: 4,
+        crystal_type: "diamond"
+      }
+    };
+  }),
+
+  // Create the bonded crystal structure
+  edges: [].pipe(create_bonds, 1)
+}

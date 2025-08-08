@@ -1,0 +1,160 @@
+{
+  // Quantum circuit parameters
+  n_qubits: 4,
+  fidelity_base: 0.99,
+
+  // Error correction transformation
+  error_correction: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.concat(
+      graph.nodes
+        .filter(n => n.meta.node_type === "qubit" && n.meta.high_fidelity === false)
+        .map(q => Node {
+          id: `syndrome_${q.id}`,
+          meta: { type: "ancilla", node_type: "qubit" }
+        })
+    ),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.node_type === "qubit" && n.meta.high_fidelity === false)
+        .map(q1 => {
+          let high_fidelity_qubits = graph.nodes.filter(n =>
+            n.meta.node_type === "qubit" && n.meta.high_fidelity === true
+          ).slice(0, 2);
+
+          return [
+            Edge {
+              source: q1.id,
+              target: `syndrome_${q1.id}`,
+              meta: { operation: "parity_check" }
+            },
+            ...high_fidelity_qubits.map(q => Edge {
+              source: q.id,
+              target: `syndrome_${q1.id}`,
+              meta: { operation: "parity_check" }
+            }),
+            Edge {
+              source: `syndrome_${q1.id}`,
+              target: q1.id,
+              meta: { operation: "bit_flip", edge_type: "correction" }
+            }
+          ];
+        })
+        .flat()
+    )
+  }),
+
+  // Entanglement creation transformation
+  create_entanglement: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.node_type === "qubit" &&
+          (node.meta.state === "1" || node.meta.entangled === false)) {
+        return {
+          ...node,
+          meta: { ...node.meta, entangled: true }
+        };
+      }
+      return node;
+    }),
+    edges: graph.edges.concat(
+      combinations(
+        graph.nodes.filter(n => n.meta.node_type === "qubit" && n.meta.entangled === false),
+        2
+      ).map(([ctrl, target]) => Edge {
+        source: ctrl.id,
+        target: target.id,
+        meta: { gate: "CNOT", creates_entanglement: true }
+      })
+    )
+  }),
+
+  // Measurement collapse transformation
+  measurement_collapse: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.node_type === "qubit" && n.meta.high_fidelity === true)
+        .map(q => Edge {
+          source: q.id,
+          target: q.id,
+          meta: { operation: "measure", result_bit: 1 }
+        })
+    )
+  }),
+
+  // Define quantum register and gates
+  nodes: [
+    // Quantum register
+    ...range("0..4").map(i => Node {
+      id: `q${i}`,
+      meta: {
+        state: "0",
+        fidelity: 0.99 - i * 0.01,
+        entangled: false,
+        high_fidelity: true,
+        node_type: "qubit"
+      }
+    }),
+    // Quantum gates
+    Node {
+      id: "H_gate",
+      meta: { type: "Hadamard", creates_superposition: true, node_type: "gate" }
+    },
+    Node {
+      id: "CNOT_gate",
+      meta: { type: "CNOT", entangling: true, node_type: "gate" }
+    },
+    Node {
+      id: "X_gate",
+      meta: { type: "Pauli-X", operation: "bit_flip", node_type: "gate" }
+    },
+    Node {
+      id: "measure",
+      meta: { type: "measurement", collapses_state: true, node_type: "gate" }
+    }
+  ],
+
+  // Define quantum circuit operations and apply transformations
+  edges: [
+    // Basic quantum operations
+    Edge {
+      source: "q0",
+      target: "H_gate",
+      meta: { operation: "apply" }
+    },
+    Edge {
+      source: "H_gate",
+      target: "q0",
+      meta: { result: "superposition" }
+    },
+    Edge {
+      source: "q1",
+      target: "CNOT_gate",
+      meta: { operation: "control" }
+    },
+    Edge {
+      source: "q0",
+      target: "CNOT_gate",
+      meta: { operation: "target" }
+    },
+    // Final measurement (conditional)
+    Edge {
+      source: "q3",
+      target: "measure",
+      meta: { operation: "final_measurement" }
+    }
+  ].concat(
+    // Additional gate connections (simulating generate complete)
+    combinations(["q0", "q1", "q2", "q3"], 2)
+      .map(([a, b]) => Edge {
+        source: a,
+        target: b,
+        meta: {
+          gate_types: "H_CNOT_X_measure",
+          error_correction: true,
+          topology: "linear"
+        }
+      })
+  ).pipe(error_correction, 2).pipe(create_entanglement, 1).pipe(measurement_collapse, 1)
+}

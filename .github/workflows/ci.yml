@@ -179,8 +179,8 @@ jobs:
           cp -r artifacts/ggl-doc/*ggl-doc*/* target/doc/rustdoc
           # Create demo directory in docs output
           mkdir -p target/doc/demo
-          # Copy WASM demo files from client-trunk artifact if available
-          cp -r artifacts/ggl_client-trunk/*client-trunk*/* target/doc/demo/ 2>/dev/null || true
+          # Copy WASM demo files from browser_demo artifact if available
+          cp -r artifacts/ggl_browser_demo/*browser_demo*/* target/doc/demo/ 2>/dev/null || true
           # Copy the GitHub Pages index template as the main index
           cp .github/pages_index.html target/doc/index.html
 

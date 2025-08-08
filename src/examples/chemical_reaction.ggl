@@ -1,0 +1,106 @@
+{
+  // Constants for the reaction
+  temp: 298,
+  pressure: 1.0,
+  activation_energy: 50.0,
+
+  // Function to create catalyzed product formation
+  catalyzed_formation: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.concat([
+      Node {
+        id: "product_H2O",
+        meta: { phase: "liquid", energy: -285.8, formula: "H2O" }
+      }
+    ]),
+    edges: graph.edges.concat([
+      Edge {
+        source: "H2",
+        target: "product_H2O",
+        meta: { activation_energy: 50.0, catalyzed: true }
+      },
+      Edge {
+        source: "O2",
+        target: "product_H2O",
+        meta: { activation_energy: 50.0, catalyzed: true }
+      },
+      Edge {
+        source: "Pt",
+        target: "H2",
+        meta: { interaction: "surface_binding" }
+      }
+    ])
+  }),
+
+  // Function to create energy pathways
+  energy_pathway: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.concat([
+      Node {
+        id: "transition_state",
+        meta: { level: 50.0, barrier: true, type: "energy" }
+      }
+    ]),
+    edges: graph.edges.concat([
+      Edge {
+        source: "H2",
+        target: "transition_state",
+        meta: { type: "activation" }
+      },
+      Edge {
+        source: "transition_state",
+        target: "H2O",
+        meta: { type: "formation" }
+      }
+    ])
+  }),
+
+  // Define molecular nodes
+  nodes: [
+    Node {
+      id: "H2",
+      meta: { formula: "H2", phase: "gas", energy: 0.0, type: "molecule" }
+    },
+    Node {
+      id: "O2",
+      meta: { formula: "O2", phase: "gas", energy: 0.0, type: "molecule" }
+    },
+    Node {
+      id: "H2O",
+      meta: { formula: "H2O", phase: "liquid", energy: -285.8, type: "molecule" }
+    },
+    Node {
+      id: "Pt",
+      meta: { type: "metal", temp: 298, active: true, catalyst_type: "catalyst" }
+    }
+  ],
+
+  // Define reaction pathways and apply transformations
+  edges: [
+    Edge {
+      source: "H2",
+      target: "H2O",
+      meta: { reaction: "formation", stoichiometry: 2 }
+    },
+    Edge {
+      source: "O2",
+      target: "H2O",
+      meta: { reaction: "formation", stoichiometry: 1 }
+    },
+    Edge {
+      source: "Pt",
+      target: "H2",
+      meta: { interaction: "activation", lowers_barrier: true }
+    },
+    Edge {
+      source: "Pt",
+      target: "O2",
+      meta: { interaction: "activation", lowers_barrier: true }
+    },
+    Edge {
+      source: "Pt",
+      target: "H2O",
+      meta: { interaction: "enhanced_formation", temp_dependent: true }
+    }
+  ].pipe(catalyzed_formation, 1).pipe(energy_pathway, 1)
+}

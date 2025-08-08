@@ -1,0 +1,33 @@
+{
+  // Function to apply friend recommendations by creating transitive connections
+  friend_recommendation: (graph) => ({
+    ...graph,
+    edges: graph.edges.concat(
+      combinations(graph.nodes, 2)
+        .filter(([a, b]) => a.id !== b.id)
+        .map(([a, b]) => Edge {
+          source: a.id,
+          target: b.id,
+          meta: { type: "suggested", strength: 0.5 }
+        })
+    )
+  }),
+
+  // Generate nodes with computed attributes
+  nodes: range("0..5").map(i => Node {
+    id: `user${i}`,
+    meta: {
+      age: 20 + i * 5,
+      influence: (20 + i * 5) * 2,
+      active: true
+    }
+  }),
+
+  // Define initial edges and apply transformations
+  edges: [
+    Edge { source: "user0", target: "user1", meta: { type: "friend", strength: 0.8 } },
+    Edge { source: "user1", target: "user2", meta: { type: "friend", strength: 0.7 } },
+    Edge { source: "user2", target: "user3", meta: { type: "friend", strength: 0.9 } },
+    Edge { source: "user0", target: "user4", meta: { type: "age_matched", weight: 0.6 } }
+  ].pipe(friend_recommendation, 2)
+}

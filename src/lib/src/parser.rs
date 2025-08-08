@@ -1,9 +1,10 @@
-//! GGL language parser and Abstract Syntax Tree (AST) definitions.
-//! This module uses the `pest` library to parse GGL source code into a structured AST.
+//! GGL v0.3.0 Parser - Functional JSON-superset language parser
+//! Transforms GGL source code into a functional AST for evaluation
 
 use pest::iterators::Pair;
 use pest::Parser as PestParser;
 use pest_derive::Parser;
+use std::collections::HashMap;
 use std::fmt;
 
 /// Type alias for boxed pest error to reduce Result size
@@ -15,66 +16,78 @@ pub struct GglParser;
 
 // --- Abstract Syntax Tree (AST) ---
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GraphAST {
+    pub root: Expression,
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    // Core structures
+    ObjectExpression(HashMap<String, Expression>),
+    TaggedObject { tag: String, fields: HashMap<String, Expression> },
+    ArrayExpression(Vec<Expression>),
+
+    // Functions and lambdas
+    FunctionDefinition { name: String, params: Vec<String>, body: Box<Expression> },
+    LambdaExpression { params: Vec<String>, body: Box<Expression> },
+
+    // Method chaining
+    ChainExpression { base: Box<Expression>, chain: Vec<ChainItem> },
+
+    // Built-ins and templates
+    BuiltinCall { name: String, args: Vec<Expression> },
+    TemplateLiteral { parts: Vec<TemplatePart> },
+
+    // Arithmetic operations
+    ArithmeticExpression(ArithmeticOp),
+
+    // Comparison operations
+    ComparisonExpression { left: Box<Expression>, operator: ComparisonOperator, right: Box<Expression> },
+
+    // Literals
+    StringLiteral(String),
+    Integer(i64),
+    Float(f64),
+    Boolean(bool),
+    Null,
+    Identifier(String),
+
+    // Special expressions
+    SpreadExpression(Box<Expression>),
+    BlockExpression { statements: Vec<Expression>, result: Box<Expression> },
+    VariableDeclaration { name: String, value: Box<Expression> },
+    IfExpression { condition: Box<Expression>, then_block: Box<Expression>, else_block: Option<Box<Expression>> },
+    ReturnStatement(Box<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub enum ChainItem {
+    MethodCall { name: String, args: Vec<Expression> },
+    PropertyAccess { name: String },
+    BuiltinCall { name: String, args: Vec<Expression> },
+}
+
+#[derive(Debug, Clone)]
+pub struct MethodCall {
     pub name: String,
-    pub statements: Vec<Statement>,
+    pub args: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]
-pub enum Statement {
-    Let(LetStatement),
-    For(ForStatement),
-    If(IfStatement),
-    Node(NodeDeclaration),
-    Edge(EdgeDeclaration),
-    Generate(GenerateStatement),
-    RuleDef(RuleDefinition),
-    Apply(ApplyStatement),
-}
-
-/// Represents a `let` statement for variable assignment.
-///
-/// # Easy Example
-///
-/// ```ggl
-/// let count = 10;
-/// ```
-#[derive(Debug, Clone)]
-pub struct LetStatement {
-    pub name: String,
-    pub value: Expression,
-}
-
-/// Represents a `for` loop for iterative graph construction.
-///
-/// # Medium Example
-///
-/// ```ggl
-/// let node_count = 5;
-/// for i in 0..node_count {
-///     node "node_{i}";
-/// }
-/// ```
-#[derive(Debug, Clone)]
-pub struct ForStatement {
-    pub variable: String,
-    pub start: Expression,
-    pub end: Expression,
-    pub body: Vec<Statement>,
+pub enum TemplatePart {
+    Literal(String),
+    Variable(Expression),
 }
 
 #[derive(Debug, Clone)]
-pub struct IfStatement {
-    pub condition: ConditionalExpression,
-    pub body: Vec<Statement>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConditionalExpression {
-    pub left: ArithmeticExpression,
-    pub operator: ComparisonOperator,
-    pub right: ArithmeticExpression,
+pub enum ArithmeticOp {
+    Add(Box<Expression>, Box<Expression>),
+    Subtract(Box<Expression>, Box<Expression>),
+    Multiply(Box<Expression>, Box<Expression>),
+    Divide(Box<Expression>, Box<Expression>),
+    Modulo(Box<Expression>, Box<Expression>),
+    Term(Box<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -87,401 +100,109 @@ pub enum ComparisonOperator {
     NotEqual,
 }
 
-#[derive(Debug, Clone)]
-pub enum ArithmeticExpression {
-    Term(Expression),
-    Add(Box<ArithmeticExpression>, Box<ArithmeticExpression>),
-    Subtract(Box<ArithmeticExpression>, Box<ArithmeticExpression>),
-    Multiply(Box<ArithmeticExpression>, Box<ArithmeticExpression>),
-    Divide(Box<ArithmeticExpression>, Box<ArithmeticExpression>),
-    Modulo(Box<ArithmeticExpression>, Box<ArithmeticExpression>),
-}
-
-#[derive(Debug, Clone)]
-pub enum AttributeMatch {
-    Exact(Expression),
-    Condition(ComparisonOperator, Expression),
-}
-
-#[derive(Debug, Clone)]
-pub struct NodeDeclaration {
-    pub id: Expression,
-    pub node_type: Option<Expression>,
-    pub attributes: Vec<(String, AttributeMatch)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct EdgeDeclaration {
-    pub id: Option<Expression>,
-    pub source: Expression,
-    pub target: Expression,
-    pub directed: bool,
-    pub attributes: Vec<(String, AttributeMatch)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct GenerateStatement {
-    pub name: String,
-    pub params: Vec<(String, Expression)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct RuleDefinition {
-    pub name: String,
-    pub lhs: Pattern,
-    pub rhs: Pattern,
-}
-
-#[derive(Debug, Clone)]
-pub struct Pattern {
-    pub nodes: Vec<NodeDeclaration>,
-    pub edges: Vec<EdgeDeclaration>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ApplyStatement {
-    pub rule_name: String,
-    pub iterations: Expression,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    StringLiteral(String),
-    FormattedString(Vec<StringPart>),
-    Integer(i64),
-    Float(f64),
-    Boolean(bool),
-    Identifier(String),
-}
-
-/// Implements the Display trait to allow Expressions to be converted to strings.
-/// This is crucial for resolving identifiers and literals in rules and statements.
+/// Implements Display for debugging and error messages
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expression::StringLiteral(s) => write!(f, "{s}"),
+            Expression::StringLiteral(s) => write!(f, "\"{s}\""),
             Expression::Integer(i) => write!(f, "{i}"),
             Expression::Float(n) => write!(f, "{n}"),
             Expression::Boolean(b) => write!(f, "{b}"),
+            Expression::Null => write!(f, "null"),
             Expression::Identifier(name) => write!(f, "{name}"),
-            Expression::FormattedString(parts) => {
-                // This formatting is for pattern matching in rules, where variables
-                // are not yet resolved.
+            Expression::TemplateLiteral { parts } => {
+                write!(f, "`")?;
                 for part in parts {
                     match part {
-                        StringPart::Literal(s) => write!(f, "{s}")?,
-                        StringPart::Variable(v) => write!(f, "{{{v}}}")?,
+                        TemplatePart::Literal(s) => write!(f, "{s}")?,
+                        TemplatePart::Variable(expr) => write!(f, "${{{expr}}}")?,
                     }
                 }
-                Ok(())
+                write!(f, "`")
             }
+            _ => write!(f, "[Expression]"),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum StringPart {
-    Literal(String),
-    Variable(String),
 }
 
 // --- Parser Implementation ---
 
-/// Parses a GGL source string into a Graph AST.
+/// Parses a GGL source string into a Graph AST
 pub fn parse_ggl(source: &str) -> Result<GraphAST, ParseError> {
-    let file_pair = GglParser::parse(Rule::file, source).map_err(Box::new)?.next().unwrap();
-    build_ast_from_file(file_pair)
-}
+    let file_pair = GglParser::parse(Rule::file, source)
+        .map_err(Box::new)?
+        .next()
+        .unwrap();
 
-fn build_ast_from_file(pair: Pair<Rule>) -> Result<GraphAST, ParseError> {
-    let mut inner = pair.into_inner();
-
-    // Check if the first item is an identifier (graph name) or a statement
-    let first = inner.next().unwrap();
-    let (name, statements) = if first.as_rule() == Rule::identifier {
-        // Graph has a name
-        let name = first.as_str().to_string();
-        let statements = inner
-            .filter(|p| p.as_rule() != Rule::EOI)
-            .map(build_statement)
-            .collect::<Result<_, _>>()?;
-        (name, statements)
-    } else if first.as_rule() == Rule::EOI {
-        // Empty graph with no name
-        let name = "unnamed".to_string();
-        (name, vec![])
-    } else {
-        // Graph has no name, first item is a statement
-        let name = "unnamed".to_string();
-        let mut statements = vec![build_statement(first)?];
-        statements.extend(
-            inner
-                .filter(|p| p.as_rule() != Rule::EOI)
-                .map(build_statement)
-                .collect::<Result<Vec<_>, _>>()?
-        );
-        (name, statements)
-    };
-
-    Ok(GraphAST { name, statements })
-}
-
-fn build_statement(pair: Pair<Rule>) -> Result<Statement, ParseError> {
-    match pair.as_rule() {
-        Rule::let_declaration => build_let_statement(pair).map(Statement::Let),
-        Rule::for_loop => build_for_loop(pair).map(Statement::For),
-        Rule::if_statement => build_if_statement(pair).map(Statement::If),
-        Rule::node_declaration => build_node_declaration(pair).map(Statement::Node),
-        Rule::edge_declaration => build_edge_declaration(pair).map(Statement::Edge),
-        Rule::generate_statement => build_generate_statement(pair).map(Statement::Generate),
-        Rule::rule_definition => build_rule_definition(pair).map(Statement::RuleDef),
-        Rule::apply_statement => build_apply_statement(pair).map(Statement::Apply),
-        _ => unreachable!("Unexpected statement rule: {:?}", pair.as_rule()),
-    }
-}
-
-fn build_let_statement(pair: Pair<Rule>) -> Result<LetStatement, ParseError> {
-    let mut inner = pair.into_inner();
-    let name = inner.next().unwrap().as_str().to_string();
-    let value = build_expression(inner.next().unwrap())?;
-    Ok(LetStatement { name, value })
-}
-
-fn build_for_loop(pair: Pair<Rule>) -> Result<ForStatement, ParseError> {
-    let mut inner = pair.into_inner();
-    let variable = inner.next().unwrap().as_str().to_string();
-    let start = build_expression(inner.next().unwrap())?;
-    let end = build_expression(inner.next().unwrap())?;
-    let body = inner.map(build_statement).collect::<Result<_, _>>()?;
-    Ok(ForStatement {
-        variable,
-        start,
-        end,
-        body,
-    })
-}
-
-fn build_if_statement(pair: Pair<Rule>) -> Result<IfStatement, ParseError> {
-    let mut inner = pair.into_inner();
-    let condition = build_conditional_expression(inner.next().unwrap())?;
-    let body = inner.map(build_statement).collect::<Result<_, _>>()?;
-    Ok(IfStatement { condition, body })
-}
-
-fn build_conditional_expression(pair: Pair<Rule>) -> Result<ConditionalExpression, ParseError> {
-    let mut inner = pair.into_inner();
-    let left = build_arithmetic_expression(inner.next().unwrap())?;
-    let operator = build_comparison_operator(inner.next().unwrap());
-    let right = build_arithmetic_expression(inner.next().unwrap())?;
-    Ok(ConditionalExpression { left, operator, right })
-}
-
-fn build_comparison_operator(pair: Pair<Rule>) -> ComparisonOperator {
-    match pair.as_str() {
-        "<" => ComparisonOperator::LessThan,
-        ">" => ComparisonOperator::GreaterThan,
-        "<=" => ComparisonOperator::LessEqual,
-        ">=" => ComparisonOperator::GreaterEqual,
-        "==" => ComparisonOperator::Equal,
-        "!=" => ComparisonOperator::NotEqual,
-        _ => unreachable!("Unknown comparison operator: {}", pair.as_str()),
-    }
-}
-
-fn build_arithmetic_expression(pair: Pair<Rule>) -> Result<ArithmeticExpression, ParseError> {
-    let mut inner = pair.into_inner().peekable();
-    let mut left = build_term(inner.next().unwrap())?;
-
-    while let Some(op_pair) = inner.peek() {
-        if op_pair.as_rule() == Rule::add_op {
-            let op = inner.next().unwrap();
-            let right = build_term(inner.next().unwrap())?;
-            left = match op.as_str() {
-                "+" => ArithmeticExpression::Add(Box::new(left), Box::new(right)),
-                "-" => ArithmeticExpression::Subtract(Box::new(left), Box::new(right)),
-                _ => unreachable!(),
-            };
-        } else {
-            break;
-        }
-    }
-
-    Ok(left)
-}
-
-fn build_term(pair: Pair<Rule>) -> Result<ArithmeticExpression, ParseError> {
-    let mut inner = pair.into_inner().peekable();
-    let mut left = build_factor(inner.next().unwrap())?;
-
-    while let Some(op_pair) = inner.peek() {
-        if op_pair.as_rule() == Rule::mul_op {
-            let op = inner.next().unwrap();
-            let right = build_factor(inner.next().unwrap())?;
-            left = match op.as_str() {
-                "*" => ArithmeticExpression::Multiply(Box::new(left), Box::new(right)),
-                "/" => ArithmeticExpression::Divide(Box::new(left), Box::new(right)),
-                "%" => ArithmeticExpression::Modulo(Box::new(left), Box::new(right)),
-                _ => unreachable!(),
-            };
-        } else {
-            break;
-        }
-    }
-
-    Ok(left)
-}
-
-fn build_factor(pair: Pair<Rule>) -> Result<ArithmeticExpression, ParseError> {
-    match pair.as_rule() {
-        Rule::factor => {
-            let inner = pair.into_inner().next().unwrap();
-            build_factor(inner)
-        },
-        Rule::arithmetic_expression => build_arithmetic_expression(pair),
-        Rule::literal | Rule::identifier => {
-            let expr = build_expression(pair)?;
-            Ok(ArithmeticExpression::Term(expr))
-        },
-        _ => {
-            let expr = build_expression(pair)?;
-            Ok(ArithmeticExpression::Term(expr))
-        }
-    }
-}
-
-fn build_node_declaration(pair: Pair<Rule>) -> Result<NodeDeclaration, ParseError> {
-    let mut inner = pair.into_inner();
-    let id = build_expression(inner.next().unwrap())?;
-    let next = inner.next();
-    let (node_type, attributes) = match next {
-        Some(pair) if pair.as_rule() == Rule::expression => {
-            let type_expr = build_expression(pair)?;
-            let attrs = inner.next().map(build_attributes).transpose()?.unwrap_or_else(Vec::<(String, AttributeMatch)>::new);
-            (Some(type_expr), attrs)
-        }
-        Some(pair) if pair.as_rule() == Rule::attributes => (None, build_attributes(pair)?),
-        _ => (None, Vec::<(String, AttributeMatch)>::new()),
-    };
-    Ok(NodeDeclaration { id, node_type, attributes })
-}
-
-fn build_edge_declaration(pair: Pair<Rule>) -> Result<EdgeDeclaration, ParseError> {
-    let span = pair.as_span(); // Capture span before moving pair
-    let mut inner_pairs: Vec<_> = pair.into_inner().collect();
-
-    let operator_pos = inner_pairs.iter().position(|p| p.as_rule() == Rule::edge_operator)
-        .ok_or_else(|| Box::new(pest::error::Error::new_from_span(
-            pest::error::ErrorVariant::CustomError { message: "Edge operator not found".to_string() },
-            span,
+    let expression = file_pair.into_inner()
+        .find(|p| p.as_rule() != Rule::EOI)
+        .ok_or_else(|| Box::new(pest::error::Error::new_from_pos(
+            pest::error::ErrorVariant::CustomError {
+                message: "Empty file".to_string()
+            },
+            pest::Position::from_start("")
         )))?;
 
-    let attributes = if inner_pairs.last().is_some_and(|p| p.as_rule() == Rule::attributes) {
-        build_attributes(inner_pairs.pop().unwrap())?
-    } else {
-        Vec::<(String, AttributeMatch)>::new()
-    };
-
-    let directed = inner_pairs[operator_pos].as_str() == "->";
-
-    let id: Option<Expression>;
-    let source: Expression;
-    let target: Expression;
-
-    // Check if there's an edge_id
-    let edge_id_pos = inner_pairs.iter().position(|p| p.as_rule() == Rule::edge_id);
-
-    if let Some(edge_id_pos) = edge_id_pos {
-        // There's an edge_id, check if it has an expression or is just ":"
-        let edge_id_pair = &inner_pairs[edge_id_pos];
-        let edge_id_inner: Vec<_> = edge_id_pair.clone().into_inner().collect();
-
-        if edge_id_inner.len() == 1 { // expression (the ":" is part of the rule but not captured)
-            id = Some(build_expression(edge_id_inner[0].clone())?);
-        } else { // just ":" (empty inner)
-            id = None;
-        }
-
-        // Source and target are after the edge_id
-        source = build_expression(inner_pairs[edge_id_pos + 1].clone())?;
-        target = build_expression(inner_pairs[edge_id_pos + 3].clone())?; // Skip operator
-    } else {
-        // No edge_id, so it's: source operator target
-        id = None;
-        source = build_expression(inner_pairs[0].clone())?;
-        target = build_expression(inner_pairs[2].clone())?; // Skip operator
-    }
-
-    Ok(EdgeDeclaration { id, source, target, directed, attributes })
+    let root = build_expression(expression)?;
+    Ok(GraphAST { root })
 }
 
-
-fn build_generate_statement(pair: Pair<Rule>) -> Result<GenerateStatement, ParseError> {
+fn build_logical_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
     let mut inner = pair.into_inner();
-    let name = inner.next().unwrap().as_str().to_string();
-    let params = inner
-        .map(|p| -> Result<(String, Expression), ParseError> {
-            let mut kv = p.into_inner();
-            let key = kv.next().unwrap().as_str().to_string();
-            let value = build_expression(kv.next().unwrap())?;
-            Ok((key, value))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(GenerateStatement { name, params })
-}
+    let mut left = build_expression(inner.next().unwrap())?;
 
-fn build_rule_definition(pair: Pair<Rule>) -> Result<RuleDefinition, ParseError> {
-    let mut inner = pair.into_inner();
-    let name = inner.next().unwrap().as_str().to_string();
-    let lhs_pair = inner.next().unwrap();
-    let rhs_pair = inner.next().unwrap();
-    let lhs = build_pattern(lhs_pair)?;
-    let rhs = build_pattern(rhs_pair)?;
-    Ok(RuleDefinition { name, lhs, rhs })
-}
-
-fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, ParseError> {
-    let mut nodes = Vec::new();
-    let mut edges = Vec::new();
-    for pattern_stmt_pair in pair.into_inner() {
-        if let Some(stmt_pair) = pattern_stmt_pair.into_inner().next() {
-            match stmt_pair.as_rule() {
-                Rule::node_declaration => nodes.push(build_node_declaration(stmt_pair)?),
-                Rule::edge_declaration => edges.push(build_edge_declaration(stmt_pair)?),
-                _ => continue,
-            }
-        }
-    }
-    Ok(Pattern { nodes, edges })
-}
-
-fn build_apply_statement(pair: Pair<Rule>) -> Result<ApplyStatement, ParseError> {
-    let mut inner = pair.into_inner();
-    let rule_name = inner.next().unwrap().as_str().to_string();
-    let iterations = build_expression(inner.next().unwrap())?;
-    Ok(ApplyStatement { rule_name, iterations })
-}
-
-fn build_attributes(pair: Pair<Rule>) -> Result<Vec<(String, AttributeMatch)>, ParseError> {
-    pair.into_inner()
-        .map(|p| -> Result<(String, AttributeMatch), ParseError> {
-            let mut inner = p.into_inner();
-            let key = inner.next().unwrap().as_str().to_string();
-            let next = inner.next().unwrap();
-
-            let attr_match = if next.as_rule() == Rule::comparison_operator {
-                // This is a condition: key > value
-                let operator = build_comparison_operator(next);
-                let value = build_expression(inner.next().unwrap())?;
-                AttributeMatch::Condition(operator, value)
-            } else {
-                // This is an exact match: key = value
-                let value = build_expression(next)?;
-                AttributeMatch::Exact(value)
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::logical_op {
+            let _right = build_expression(inner.next().unwrap())?;
+            // For now, just return a simple boolean based on the operator
+            // In a full implementation, this would create a logical expression
+            left = match op_pair.as_str() {
+                "&&" => Expression::Boolean(true),  // Simplified - would need proper evaluation
+                "||" => Expression::Boolean(false), // Simplified - would need proper evaluation
+                _ => Expression::Boolean(false),
             };
+        }
+    }
 
-            Ok((key, attr_match))
-        })
-        .collect()
+    Ok(left)
+}
+
+fn build_comparison_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let mut left = build_expression(inner.next().unwrap())?;
+
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::comparison_operator {
+            let right = build_expression(inner.next().unwrap())?;
+            let operator = match op_pair.as_str() {
+                "!==" | "!=" => ComparisonOperator::NotEqual,
+                "===" | "==" => ComparisonOperator::Equal,
+                "<" => ComparisonOperator::LessThan,
+                ">" => ComparisonOperator::GreaterThan,
+                "<=" => ComparisonOperator::LessEqual,
+                ">=" => ComparisonOperator::GreaterEqual,
+                _ => return Err(Box::new(pest::error::Error::new_from_span(
+                    pest::error::ErrorVariant::CustomError {
+                        message: format!("Unknown comparison operator: {}", op_pair.as_str()),
+                    },
+                    op_pair.as_span(),
+                ))),
+            };
+            left = Expression::ComparisonExpression {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            };
+        }
+    }
+
+    Ok(left)
+}
+
+#[allow(dead_code)]
+fn build_comparison_term(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    build_expression(inner)
 }
 
 fn build_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
@@ -489,60 +210,689 @@ fn build_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
         Rule::expression => {
             let inner = pair.into_inner().next().unwrap();
             build_expression(inner)
+        }
+        Rule::object_expression => build_object_expression(pair),
+        Rule::tagged_object => build_tagged_object(pair),
+        Rule::array_expression => build_array_expression(pair),
+        Rule::chain_expression => build_chain_expression(pair),
+        Rule::builtin_call => build_builtin_call(pair),
+        Rule::function_definition => build_function_definition(pair),
+        Rule::lambda_expression => build_lambda_expression(pair),
+        Rule::template_literal => build_template_literal(pair),
+        Rule::comparison_expression => build_comparison_expression(pair),
+        Rule::range_expr => build_range_expression(pair),
+        Rule::logical_expression => build_logical_expression(pair),
+        Rule::additive_expression => build_additive_expression(pair),
+        Rule::multiplicative_expression => build_multiplicative_expression(pair),
+        Rule::postfix_expression => build_postfix_expression(pair),
+        Rule::primary_expression => {
+            let inner = pair.into_inner().next().unwrap();
+            build_expression(inner)
         },
-        Rule::arithmetic_expression => {
-            // Create a special expression type to hold arithmetic expressions
-            // This will be evaluated later by the engine
-            let arith = build_arithmetic_expression(pair)?;
-            match arith {
-                ArithmeticExpression::Term(expr) => Ok(expr),
-                _ => {
-                    // For complex arithmetic expressions, we need to evaluate them
-                    // For now, we'll use a placeholder approach but this should be improved
-                    Ok(Expression::Integer(0))
-                }
-            }
+        Rule::if_expression => build_if_expression(pair),
+        Rule::block_expression => build_block_expression(pair),
+        Rule::spread_expression => build_spread_expression(pair),
+        Rule::variable_declaration => build_variable_declaration(pair),
+        Rule::return_statement => build_return_statement(pair),
+        Rule::lambda_body => {
+            let inner = pair.into_inner().next().unwrap();
+            build_expression(inner)
         },
         Rule::literal => build_literal(pair),
         Rule::identifier => Ok(Expression::Identifier(pair.as_str().to_string())),
-        Rule::formatted_string => {
-            let parts = pair.into_inner().map(|p| match p.as_rule() {
-                Rule::string_part => StringPart::Literal(p.as_str().to_string()),
-                Rule::var_in_string => {
-                    let arith_expr = p.into_inner().next().unwrap();
-                    // For now, we'll serialize the arithmetic expression as a string
-                    // In a full implementation, you might want to evaluate it
-                    StringPart::Variable(arith_expr.as_str().to_string())
-                },
-                _ => unreachable!(),
-            }).collect();
-            Ok(Expression::FormattedString(parts))
-        },
-        Rule::string => {
-            // Direct string literal
-            let content = pair.as_str();
-            let trimmed = &content[1..content.len()-1]; // Remove quotes
-            Ok(Expression::StringLiteral(trimmed.to_string()))
-        },
+        Rule::string_literal => build_string_literal(pair),
         Rule::integer => Ok(Expression::Integer(pair.as_str().parse().unwrap())),
         Rule::float => Ok(Expression::Float(pair.as_str().parse().unwrap())),
         Rule::boolean => Ok(Expression::Boolean(pair.as_str().parse().unwrap())),
-        _ => unreachable!("Unexpected expression rule: {:?}", pair.as_rule()),
+        Rule::null => Ok(Expression::Null),
+        _ => {
+            eprintln!("Unexpected rule in build_expression: {:?}", pair.as_rule());
+            Err(Box::new(pest::error::Error::new_from_span(
+                pest::error::ErrorVariant::CustomError {
+                    message: format!("Unexpected expression rule: {:?}", pair.as_rule()),
+                },
+                pair.as_span(),
+            )))
+        }
     }
+}
+
+fn build_object_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut object = HashMap::new();
+
+    for object_item in pair.into_inner() {
+        match object_item.as_rule() {
+            Rule::object_item => {
+                // object_item contains either spread_expression or object_pair
+                let inner_item = object_item.into_inner().next().unwrap();
+
+                match inner_item.as_rule() {
+                    Rule::object_pair => {
+                        let mut pair_inner = inner_item.into_inner();
+                        let key_pair = pair_inner.next().unwrap();
+                        let value_pair = pair_inner.next().unwrap();
+
+                        let key = match key_pair.as_rule() {
+                            Rule::string_literal => {
+                                let content = key_pair.as_str();
+                                content[1..content.len()-1].to_string() // Remove quotes
+                            }
+                            Rule::identifier => key_pair.as_str().to_string(),
+                            _ => return Err(Box::new(pest::error::Error::new_from_span(
+                                pest::error::ErrorVariant::CustomError {
+                                    message: "Invalid object key".to_string(),
+                                },
+                                key_pair.as_span(),
+                            ))),
+                        };
+
+                        let value = build_expression(value_pair)?;
+                        object.insert(key, value);
+                    }
+                    Rule::spread_expression => {
+                        // For now, just ignore spread expressions in object parsing
+                        // A full implementation would merge the spread object properties
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+            Rule::object_pair => {
+                let mut inner = object_item.into_inner();
+                let key_pair = inner.next().unwrap();
+                let value_pair = inner.next().unwrap();
+
+                let key = match key_pair.as_rule() {
+                    Rule::string_literal => {
+                        let content = key_pair.as_str();
+                        content[1..content.len()-1].to_string() // Remove quotes
+                    }
+                    Rule::identifier => key_pair.as_str().to_string(),
+                    _ => return Err(Box::new(pest::error::Error::new_from_span(
+                        pest::error::ErrorVariant::CustomError {
+                            message: "Invalid object key".to_string(),
+                        },
+                        key_pair.as_span(),
+                    ))),
+                };
+
+                let value = build_expression(value_pair)?;
+                object.insert(key, value);
+            }
+            Rule::spread_expression => {
+                // For now, just ignore spread expressions in object parsing
+                // A full implementation would merge the spread object properties
+                continue;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(Expression::ObjectExpression(object))
+}
+
+fn build_tagged_object(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let span = pair.as_span(); // Capture span before moving pair
+    let mut inner = pair.into_inner();
+    let tag = inner.next().unwrap().as_str().to_string();
+    let mut fields = HashMap::new();
+
+    for object_pair in inner {
+        if object_pair.as_rule() == Rule::object_pair {
+            let mut pair_inner = object_pair.into_inner();
+            let key_pair = pair_inner.next().unwrap();
+            let value_pair = pair_inner.next().unwrap();
+
+            let key = match key_pair.as_rule() {
+                Rule::string_literal => {
+                    let content = key_pair.as_str();
+                    content[1..content.len()-1].to_string()
+                }
+                Rule::identifier => key_pair.as_str().to_string(),
+                _ => return Err(Box::new(pest::error::Error::new_from_span(
+                    pest::error::ErrorVariant::CustomError {
+                        message: "Invalid field key in tagged object".to_string(),
+                    },
+                    key_pair.as_span(),
+                ))),
+            };
+
+            let value = build_expression(value_pair)?;
+            fields.insert(key, value);
+        }
+    }
+
+    // Validate required fields for Node and Edge
+    match tag.as_str() {
+        "Node" => {
+            if !fields.contains_key("id") {
+                return Err(Box::new(pest::error::Error::new_from_span(
+                    pest::error::ErrorVariant::CustomError {
+                        message: "Node object must have 'id' field".to_string(),
+                    },
+                    span,
+                )));
+            }
+        }
+        "Edge" => {
+            if !fields.contains_key("source") || !fields.contains_key("target") {
+                return Err(Box::new(pest::error::Error::new_from_span(
+                    pest::error::ErrorVariant::CustomError {
+                        message: "Edge object must have 'source' and 'target' fields".to_string(),
+                    },
+                    span,
+                )));
+            }
+        }
+        _ => {}
+    }
+
+    Ok(Expression::TaggedObject { tag, fields })
+}
+
+fn build_array_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let elements = pair.into_inner()
+        .map(build_expression)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Expression::ArrayExpression(elements))
+}
+
+fn build_chain_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let base = build_expression(inner.next().unwrap())?;
+
+    let mut chain = Vec::new();
+    for segment in inner {
+        let item = segment.into_inner().next().unwrap();
+        match item.as_rule() {
+            Rule::method_call => {
+                let mut method_inner = item.into_inner();
+                let name = method_inner.next().unwrap().as_str().to_string();
+                let args = method_inner
+                    .map(build_expression)
+                    .collect::<Result<Vec<_>, _>>()?;
+                chain.push(ChainItem::MethodCall { name, args });
+            }
+            Rule::builtin_call => {
+                let mut builtin_inner = item.into_inner();
+                let name = builtin_inner.next().unwrap().as_str().to_string();
+                let args = if let Some(args_pair) = builtin_inner.next() {
+                    args_pair.into_inner()
+                        .map(build_expression)
+                        .collect::<Result<Vec<_>, _>>()?
+                } else {
+                    Vec::new()
+                };
+                chain.push(ChainItem::BuiltinCall { name, args });
+            }
+            Rule::identifier => {
+                let name = item.as_str().to_string();
+                chain.push(ChainItem::PropertyAccess { name });
+            }
+            _ => unreachable!("Unexpected rule in chain_segment: {:?}", item.as_rule()),
+        }
+    }
+
+    // Since we now require at least one chain segment, we always have a chain
+    Ok(Expression::ChainExpression {
+        base: Box::new(base),
+        chain,
+    })
+}
+
+fn build_builtin_call(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+
+    let args = if let Some(args_pair) = inner.next() {
+        args_pair.into_inner()
+            .map(build_expression)
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        Vec::new()
+    };
+
+    Ok(Expression::BuiltinCall { name, args })
+}
+
+fn build_range_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let start = build_range_term(inner.next().unwrap())?;
+    let end = build_range_term(inner.next().unwrap())?;
+
+    // Convert range expression to a builtin call for now
+    Ok(Expression::BuiltinCall {
+        name: "range".to_string(),
+        args: vec![start, end],
+    })
+}
+
+fn build_range_term(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    build_expression(inner)
+}
+
+fn build_function_definition(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let span = pair.as_span();
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+    let lambda_pair = inner.next().unwrap();
+
+    if let Expression::LambdaExpression { params, body } = build_lambda_expression(lambda_pair)? {
+        Ok(Expression::FunctionDefinition {
+            name,
+            params,
+            body,
+        })
+    } else {
+        Err(Box::new(pest::error::Error::new_from_span(
+            pest::error::ErrorVariant::CustomError {
+                message: "Invalid function definition".to_string(),
+            },
+            span,
+        )))
+    }
+}
+
+fn build_lambda_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let span = pair.as_span();
+    let mut inner = pair.into_inner();
+
+    let mut params = Vec::new();
+
+    // The grammar has two patterns:
+    // 1. ("(" ~ lambda_param_list ~ ")" ~ "=>" ~ lambda_body)
+    // 2. (lambda_param ~ "=>" ~ lambda_body)
+
+    let first_item = inner.next().unwrap();
+
+    let body_pair = match first_item.as_rule() {
+        Rule::lambda_param_list => {
+            // Pattern 1: parentheses around parameter list
+            for param_pair in first_item.into_inner() {
+                params.push(extract_param_name(param_pair)?);
+            }
+            inner.next() // lambda_body
+        }
+        Rule::lambda_param => {
+            // Pattern 2: single parameter without parentheses
+            params.push(extract_param_name(first_item)?);
+            inner.next() // lambda_body
+        }
+        Rule::lambda_body | Rule::expression | Rule::block_expression => {
+            // This means we have no parameters (empty lambda_param_list)
+            Some(first_item)
+        }
+        _ => {
+            return Err(Box::new(pest::error::Error::new_from_span(
+                pest::error::ErrorVariant::CustomError {
+                    message: format!("Unexpected lambda element: {:?}", first_item.as_rule()),
+                },
+                span,
+            )));
+        }
+    };
+
+    let body = if let Some(body_pair) = body_pair {
+        Box::new(build_expression(body_pair)?)
+    } else {
+        return Err(Box::new(pest::error::Error::new_from_span(
+            pest::error::ErrorVariant::CustomError {
+                message: "Lambda expression missing body".to_string(),
+            },
+            span,
+        )));
+    };
+
+    Ok(Expression::LambdaExpression { params, body })
+}
+
+fn extract_param_name(param_pair: Pair<Rule>) -> Result<String, ParseError> {
+    let inner = param_pair.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::identifier => Ok(inner.as_str().to_string()),
+        Rule::array_destructure => {
+            // Preserve the destructuring syntax for proper handling in evaluation
+            let destructure_params: Vec<String> = inner.into_inner()
+                .map(|p| p.as_str().to_string())
+                .collect();
+            Ok(format!("[{}]", destructure_params.join(", "))) // Keep proper format
+        }
+        _ => Err(Box::new(pest::error::Error::new_from_span(
+            pest::error::ErrorVariant::CustomError {
+                message: "Invalid parameter type".to_string(),
+            },
+            inner.as_span(),
+        ))),
+    }
+}
+
+fn build_template_literal(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut parts = Vec::new();
+
+    for part in pair.into_inner() {
+        match part.as_rule() {
+            Rule::template_part => {
+                parts.push(TemplatePart::Literal(part.as_str().to_string()));
+            }
+            Rule::template_var => {
+                let expr_pair = part.into_inner().next().unwrap();
+                let expr = build_expression(expr_pair)?;
+                parts.push(TemplatePart::Variable(expr));
+            }
+            _ => {}
+        }
+    }
+
+    Ok(Expression::TemplateLiteral { parts })
+}
+
+fn build_additive_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let mut left = build_expression(inner.next().unwrap())?;
+
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::add_op {
+            let right = build_expression(inner.next().unwrap())?;
+            left = match op_pair.as_str() {
+                "+" => Expression::ArithmeticExpression(ArithmeticOp::Add(
+                    Box::new(left),
+                    Box::new(right)
+                )),
+                "-" => Expression::ArithmeticExpression(ArithmeticOp::Subtract(
+                    Box::new(left),
+                    Box::new(right)
+                )),
+                _ => unreachable!(),
+            };
+        }
+    }
+
+    Ok(left)
+}
+
+fn build_multiplicative_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let mut left = build_expression(inner.next().unwrap())?;
+
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::mul_op {
+            let right = build_expression(inner.next().unwrap())?;
+            left = match op_pair.as_str() {
+                "*" => Expression::ArithmeticExpression(ArithmeticOp::Multiply(
+                    Box::new(left),
+                    Box::new(right)
+                )),
+                "/" => Expression::ArithmeticExpression(ArithmeticOp::Divide(
+                    Box::new(left),
+                    Box::new(right)
+                )),
+                "%" => Expression::ArithmeticExpression(ArithmeticOp::Modulo(
+                    Box::new(left),
+                    Box::new(right)
+                )),
+                _ => unreachable!(),
+            };
+        }
+    }
+
+    Ok(left)
+}
+
+fn build_postfix_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let base = build_expression(inner.next().unwrap())?;
+
+    let mut chain = Vec::new();
+    for item in inner {
+        match item.as_rule() {
+            Rule::chain_segment => {
+                let segment_inner = item.into_inner().next().unwrap();
+                match segment_inner.as_rule() {
+                    Rule::method_call => {
+                        let mut method_inner = segment_inner.into_inner();
+                        let name = method_inner.next().unwrap().as_str().to_string();
+                        let args = method_inner
+                            .map(build_expression)
+                            .collect::<Result<Vec<_>, _>>()?;
+                        chain.push(ChainItem::MethodCall { name, args });
+                    }
+                    Rule::builtin_call => {
+                        let mut builtin_inner = segment_inner.into_inner();
+                        let name = builtin_inner.next().unwrap().as_str().to_string();
+                        let args = if let Some(args_pair) = builtin_inner.next() {
+                            args_pair.into_inner()
+                                .map(build_expression)
+                                .collect::<Result<Vec<_>, _>>()?
+                        } else {
+                            Vec::new()
+                        };
+                        chain.push(ChainItem::BuiltinCall { name, args });
+                    }
+                    Rule::identifier => {
+                        let name = segment_inner.as_str().to_string();
+                        chain.push(ChainItem::PropertyAccess { name });
+                    }
+                    _ => unreachable!("Unexpected rule in chain_segment: {:?}", segment_inner.as_rule()),
+                }
+            }
+            Rule::range_op => {
+                // Handle range operations like a..b
+                let range_end = build_expression(item.into_inner().next().unwrap())?;
+                return Ok(Expression::BuiltinCall {
+                    name: "range".to_string(),
+                    args: vec![base, range_end],
+                });
+            }
+            _ => unreachable!("Unexpected rule in postfix_expression: {:?}", item.as_rule()),
+        }
+    }
+
+    if chain.is_empty() {
+        Ok(base)
+    } else {
+        Ok(Expression::ChainExpression {
+            base: Box::new(base),
+            chain,
+        })
+    }
+}
+
+#[allow(dead_code)]
+fn build_arithmetic_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let mut left = build_term(inner.next().unwrap())?;
+
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::add_op {
+            let right = build_term(inner.next().unwrap())?;
+            left = match op_pair.as_str() {
+                "+" => ArithmeticOp::Add(
+                    Box::new(Expression::ArithmeticExpression(left)),
+                    Box::new(Expression::ArithmeticExpression(right))
+                ),
+                "-" => ArithmeticOp::Subtract(
+                    Box::new(Expression::ArithmeticExpression(left)),
+                    Box::new(Expression::ArithmeticExpression(right))
+                ),
+                _ => unreachable!(),
+            };
+        }
+    }
+
+    Ok(Expression::ArithmeticExpression(left))
+}
+
+#[allow(dead_code)]
+fn build_term(pair: Pair<Rule>) -> Result<ArithmeticOp, ParseError> {
+    let mut inner = pair.into_inner();
+    let mut left = build_factor(inner.next().unwrap())?;
+
+    while let Some(op_pair) = inner.next() {
+        if op_pair.as_rule() == Rule::mul_op {
+            let right = build_factor(inner.next().unwrap())?;
+            left = match op_pair.as_str() {
+                "*" => ArithmeticOp::Multiply(
+                    Box::new(Expression::ArithmeticExpression(left)),
+                    Box::new(Expression::ArithmeticExpression(right))
+                ),
+                "/" => ArithmeticOp::Divide(
+                    Box::new(Expression::ArithmeticExpression(left)),
+                    Box::new(Expression::ArithmeticExpression(right))
+                ),
+                "%" => ArithmeticOp::Modulo(
+                    Box::new(Expression::ArithmeticExpression(left)),
+                    Box::new(Expression::ArithmeticExpression(right))
+                ),
+                _ => unreachable!(),
+            };
+        }
+    }
+
+    Ok(left)
+}
+
+#[allow(dead_code)]
+fn build_factor(pair: Pair<Rule>) -> Result<ArithmeticOp, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::additive_expression => {
+            let expr = build_additive_expression(inner)?;
+            if let Expression::ArithmeticExpression(op) = expr {
+                Ok(op)
+            } else {
+                Ok(ArithmeticOp::Term(Box::new(expr)))
+            }
+        }
+        Rule::literal => {
+            let expr = build_expression(inner)?;
+            Ok(ArithmeticOp::Term(Box::new(expr)))
+        }
+        Rule::identifier => {
+            let expr = build_expression(inner)?;
+            Ok(ArithmeticOp::Term(Box::new(expr)))
+        }
+        _ => {
+            unreachable!("Unexpected rule in factor: {:?}", inner.as_rule())
+        }
+    }
+}
+
+fn build_block_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut statements = Vec::new();
+    let mut last_expression = None;
+
+    // Process all items in the block
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::statement => {
+                let expr_pair = item.into_inner().next().unwrap();
+                statements.push(build_expression(expr_pair)?);
+            }
+            Rule::expression => {
+                // If we see a standalone expression, it becomes the result
+                last_expression = Some(Box::new(build_expression(item)?));
+            }
+            _ => {}
+        }
+    }
+
+    // If we have a final expression, use that as result
+    // Otherwise, use the last statement as result, or Null if empty
+    let result = last_expression.unwrap_or_else(|| {
+        if let Some(last_stmt) = statements.pop() {
+            Box::new(last_stmt)
+        } else {
+            Box::new(Expression::Null)
+        }
+    });
+
+    Ok(Expression::BlockExpression { statements, result })
+}
+
+fn build_spread_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    let expr = build_expression(inner)?;
+    Ok(Expression::SpreadExpression(Box::new(expr)))
+}
+
+fn build_variable_declaration(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let name = inner.next().unwrap().as_str().to_string();
+    let value = build_expression(inner.next().unwrap())?;
+
+    Ok(Expression::VariableDeclaration {
+        name,
+        value: Box::new(value),
+    })
+}
+
+fn build_if_expression(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let mut inner = pair.into_inner();
+    let condition = build_expression(inner.next().unwrap())?;
+    let then_block = build_expression(inner.next().unwrap())?;
+    let else_block = if let Some(else_pair) = inner.next() {
+        Some(Box::new(build_expression(else_pair)?))
+    } else {
+        None
+    };
+
+    Ok(Expression::IfExpression {
+        condition: Box::new(condition),
+        then_block: Box::new(then_block),
+        else_block,
+    })
+}
+
+fn build_return_statement(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let inner = pair.into_inner().next().unwrap();
+    let expr = build_expression(inner)?;
+    Ok(Expression::ReturnStatement(Box::new(expr)))
 }
 
 fn build_literal(pair: Pair<Rule>) -> Result<Expression, ParseError> {
     let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::string => {
-            // Extract the content between quotes
-            let content = inner.as_str();
-            let trimmed = &content[1..content.len()-1]; // Remove quotes
-            Ok(Expression::StringLiteral(trimmed.to_string()))
-        },
-        Rule::integer => Ok(Expression::Integer(inner.as_str().parse().unwrap())),
-        Rule::float => Ok(Expression::Float(inner.as_str().parse().unwrap())),
-        Rule::boolean => Ok(Expression::Boolean(inner.as_str().parse().unwrap())),
-        _ => unreachable!("Unexpected literal rule: {:?}", inner.as_rule()),
+    build_expression(inner)
+}
+
+fn build_string_literal(pair: Pair<Rule>) -> Result<Expression, ParseError> {
+    let content = pair.as_str();
+    let mut result = String::new();
+    let mut chars = content[1..content.len()-1].chars(); // Remove quotes
+
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            if let Some(escaped) = chars.next() {
+                match escaped {
+                    'n' => result.push('\n'),
+                    'r' => result.push('\r'),
+                    't' => result.push('\t'),
+                    '\\' => result.push('\\'),
+                    '"' => result.push('"'),
+                    'u' => {
+                        // Unicode escape sequence
+                        let mut unicode_digits = String::new();
+                        for _ in 0..4 {
+                            if let Some(digit) = chars.next() {
+                                unicode_digits.push(digit);
+                            }
+                        }
+                        if let Ok(code_point) = u32::from_str_radix(&unicode_digits, 16) {
+                            if let Some(unicode_char) = char::from_u32(code_point) {
+                                result.push(unicode_char);
+                            }
+                        }
+                    }
+                    _ => {
+                        result.push('\\');
+                        result.push(escaped);
+                    }
+                }
+            }
+        } else {
+            result.push(ch);
+        }
     }
+
+    Ok(Expression::StringLiteral(result))
 }

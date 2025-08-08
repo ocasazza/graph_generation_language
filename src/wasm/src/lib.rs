@@ -36,13 +36,14 @@ pub fn run() {
 ///     await init();
 ///
 ///     const engine = new GGLEngine();
-///     const gglCode = `
-///         graph simple {
-///             node a;
-///             node b;
-///             edge: a -- b;
-///         }
-///     `;
+///     const gglCode = `{
+///       nodes: ["a", "b", "c"],
+///       edges: combinations(["a", "b", "c"], 2).map(([a, b]) => Edge {
+///         source: a,
+///         target: b,
+///         meta: {}
+///       })
+///     }`;
 ///
 ///     try {
 ///         const result = engine.generate_from_ggl(gglCode);
@@ -119,36 +120,21 @@ impl WASMGGLEngine {
             .map_err(|e| JsValue::from_str(&e))
     }
 
-    /// Returns the current graph as a JSON string.
+    /// Sets the base path for relative file inclusions in GGL programs.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The base path to use for resolving relative file paths
     ///
     /// # Examples
     ///
     /// ```javascript
     /// const engine = new GGLEngine();
-    /// // ... process some GGL code ...
-    /// const graphJson = engine.get_graph_json();
-    /// const graph = JSON.parse(graphJson);
+    /// engine.set_base_path("/path/to/ggl/files");
     /// ```
     #[wasm_bindgen]
-    pub fn get_graph_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string(self.inner.get_graph())
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
-    }
-
-    /// Returns the current graph as a pretty-printed JSON string.
-    ///
-    /// # Examples
-    ///
-    /// ```javascript
-    /// const engine = new GGLEngine();
-    /// // ... process some GGL code ...
-    /// const prettyJson = engine.get_graph_json_pretty();
-    /// console.log(prettyJson);
-    /// ```
-    #[wasm_bindgen]
-    pub fn get_graph_json_pretty(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(self.inner.get_graph())
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {e}")))
+    pub fn set_base_path(&mut self, path: &str) {
+        self.inner = std::mem::take(&mut self.inner).with_base_path(path);
     }
 }
 

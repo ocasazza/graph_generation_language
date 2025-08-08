@@ -1,964 +1,595 @@
-use graph_generation_language::parser::{parse_ggl, Expression, Statement, AttributeMatch};
+use graph_generation_language::parser::{parse_ggl, Expression};
+use graph_generation_language::GGLEngine;
+use serde_json::Value;
 
 #[cfg(test)]
-mod lexical_tests {
+mod basic_parsing_tests {
     use super::*;
 
     #[test]
-    fn test_identifiers() {
+    fn test_simple_object_parsing() {
         let input = r#"
-            graph test {
-                node simple_id;
-                node CamelCase;
-                node with_123_numbers;
-                node _underscore_start;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse valid identifiers: {:?}",
-            result.err()
-        );
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
-
-        // Verify all are node declarations with correct IDs
-        for (i, expected_id) in [
-            "simple_id",
-            "CamelCase",
-            "with_123_numbers",
-            "_underscore_start",
-        ]
-        .iter()
-        .enumerate()
         {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    match &node.id {
-                        Expression::Identifier(s) => assert_eq!(s, *expected_id),
-                        _ => panic!("Expected identifier"),
-                    }
-                }
-                _ => panic!("Expected NodeDecl at position {i}"),
-            }
+            nodes: [],
+            edges: []
         }
-    }
-
-    #[test]
-    fn test_strings() {
-        let input = r#"
-            graph test {
-                node n1 [label="simple string"];
-                node n2 [label="string with spaces"];
-                node n3 [label="string_with_underscores"];
-                node n4 [label=""];
-            }
         "#;
 
         let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse strings: {:?}",
-            result.err()
-        );
+        assert!(result.is_ok(), "Failed to parse simple object: {:?}", result.err());
 
         let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
-
-        let expected_labels = [
-            "simple string",
-            "string with spaces",
-            "string_with_underscores",
-            "",
-        ];
-        for (i, expected_label) in expected_labels.iter().enumerate() {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    // Find the label attribute in the Vec<(String, Expression)>
-                    let label_attr = node.attributes.iter().find(|(key, _)| key == "label");
-                    match label_attr {
-                        Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
-                            assert_eq!(s, expected_label)
-                        }
-                        _ => panic!("Expected string label at position {i}"),
-                    }
-                }
-                _ => panic!("Expected NodeDecl at position {i}"),
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert_eq!(pairs.len(), 2);
+                assert!(pairs.contains_key("nodes"));
+                assert!(pairs.contains_key("edges"));
             }
+            _ => panic!("Expected ObjectExpression at root"),
         }
     }
 
     #[test]
-    fn test_numbers() {
+    fn test_array_parsing() {
         let input = r#"
-            graph test {
-                node n1 [weight=42];
-                node n2 [weight=-17];
-                node n3 [weight=3.75];
-                node n4 [weight=-2.5];
-                node n5 [weight=0];
-                node n6 [weight=0.0];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse numbers: {:?}",
-            result.err()
-        );
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 6);
-
-        #[derive(Debug)]
-        enum ExpectedWeight {
-            Integer(i64),
-            Float(f64),
+        {
+            numbers: [1, 2, 3, 4, 5],
+            strings: ["hello", "world"],
+            mixed: [1, "test", true, null]
         }
-
-        let expected_weights = [
-            ExpectedWeight::Integer(42),
-            ExpectedWeight::Integer(-17),
-            ExpectedWeight::Float(3.75),
-            ExpectedWeight::Float(-2.5),
-            ExpectedWeight::Integer(0),
-            ExpectedWeight::Float(0.0),
-        ];
-
-        for (i, expected_weight) in expected_weights.iter().enumerate() {
-            match &ast.statements[i] {
-                Statement::Node(node) => {
-                    let weight_attr = node.attributes.iter().find(|(key, _)| key == "weight");
-                    match (weight_attr, expected_weight) {
-                        (
-                            Some((_, AttributeMatch::Exact(Expression::Integer(n)))),
-                            ExpectedWeight::Integer(expected),
-                        ) => {
-                            assert_eq!(*n, *expected);
-                        }
-                        (
-                            Some((_, AttributeMatch::Exact(Expression::Float(n)))),
-                            ExpectedWeight::Float(expected),
-                        ) => {
-                            assert!((n - expected).abs() < f64::EPSILON, "Expected {expected}, got {n}");
-                        }
-                        _ => panic!("Expected correct number type at position {i}"),
-                    }
-                }
-                _ => panic!("Expected NodeDecl at position {i}"),
-            }
-        }
-    }
-
-    #[test]
-    fn test_booleans() {
-        let input = r#"
-            graph test {
-                node n1 [active=true];
-                node n2 [active=false];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse booleans: {:?}",
-            result.err()
-        );
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
-
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, AttributeMatch::Exact(Expression::Boolean(true)))) => (),
-                    _ => panic!("Expected true boolean"),
-                }
-            },
-            _ => panic!("Expected NodeDecl"),
-        }
-
-        match &ast.statements[1] {
-            Statement::Node(node) => {
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, AttributeMatch::Exact(Expression::Boolean(false)))) => (),
-                    _ => panic!("Expected false boolean"),
-                }
-            },
-            _ => panic!("Expected NodeDecl"),
-        }
-    }
-
-    #[test]
-    fn test_comments() {
-        let input = r#"
-            // This is a line comment
-            graph test {
-                node n1; // End of line comment
-                /* Block comment */
-                node n2;
-                /*
-                 * Multi-line
-                 * block comment
-                 */
-                node n3;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse with comments: {:?}",
-            result.err()
-        );
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 3);
-    }
-}
-
-#[cfg(test)]
-mod node_declaration_tests {
-    use super::*;
-
-    #[test]
-    fn test_simple_node() {
-        let input = r#"
-            graph test {
-                node simple;
-            }
         "#;
 
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
         let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert_eq!(pairs.len(), 3);
 
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "simple"),
-                    _ => panic!("Expected identifier"),
-                }
-                assert!(node.node_type.is_none());
-                assert!(node.attributes.is_empty());
+                // Test that arrays are properly parsed
+                assert!(matches!(pairs.get("numbers"), Some(Expression::ArrayExpression(_))));
+                assert!(matches!(pairs.get("strings"), Some(Expression::ArrayExpression(_))));
+                assert!(matches!(pairs.get("mixed"), Some(Expression::ArrayExpression(_))));
             }
-            _ => panic!("Expected NodeDecl"),
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 
     #[test]
-    fn test_typed_node() {
+    fn test_literal_values() {
         let input = r#"
-            graph test {
-                node person :human;
-                node building :structure;
-            }
+        {
+            integer: 42,
+            float: 3.14159,
+            string: "hello world",
+            boolean_true: true,
+            boolean_false: false,
+            null_value: null
+        }
         "#;
 
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
         let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
-
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "person"),
-                    _ => panic!("Expected identifier"),
-                }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "human"),
-                    _ => panic!("Expected node type"),
-                }
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert!(matches!(pairs.get("integer"), Some(Expression::Integer(42))));
+                assert!(matches!(pairs.get("float"), Some(Expression::Float(_))));
+                assert!(matches!(pairs.get("string"), Some(Expression::StringLiteral(_))));
+                assert!(matches!(pairs.get("boolean_true"), Some(Expression::Boolean(true))));
+                assert!(matches!(pairs.get("boolean_false"), Some(Expression::Boolean(false))));
+                assert!(matches!(pairs.get("null_value"), Some(Expression::Null)));
             }
-            _ => panic!("Expected NodeDecl"),
-        }
-
-        match &ast.statements[1] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "building"),
-                    _ => panic!("Expected identifier"),
-                }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "structure"),
-                    _ => panic!("Expected node type"),
-                }
-            }
-            _ => panic!("Expected NodeDecl"),
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 
     #[test]
-    fn test_node_with_attributes() {
+    fn test_nested_objects() {
         let input = r#"
-            graph test {
-                node person [name="Alice", age=30, active=true];
+        {
+            outer: {
+                inner: {
+                    deep: "value"
+                },
+                sibling: 123
             }
+        }
         "#;
 
         let result = parse_ggl(input);
         assert!(result.is_ok());
 
         let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "person"),
-                    _ => panic!("Expected identifier"),
-                }
-                assert_eq!(node.attributes.len(), 3);
-
-                let name_attr = node.attributes.iter().find(|(key, _)| key == "name");
-                match name_attr {
-                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
-                        assert_eq!(s, "Alice")
-                    }
-                    _ => panic!("Expected name attribute"),
-                }
-
-                let age_attr = node.attributes.iter().find(|(key, _)| key == "age");
-                match age_attr {
-                    Some((_, AttributeMatch::Exact(Expression::Integer(n)))) => assert_eq!(*n, 30),
-                    _ => panic!("Expected age attribute"),
-                }
-
-                let active_attr = node.attributes.iter().find(|(key, _)| key == "active");
-                match active_attr {
-                    Some((_, AttributeMatch::Exact(Expression::Boolean(b)))) => assert!(*b),
-                    _ => panic!("Expected active attribute"),
-                }
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert!(matches!(pairs.get("outer"), Some(Expression::ObjectExpression(_))));
             }
-            _ => panic!("Expected NodeDecl"),
-        }
-    }
-
-    #[test]
-    fn test_node_with_type_and_attributes() {
-        let input = r#"
-            graph test {
-                node alice :person [name="Alice", age=30];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "alice"),
-                    _ => panic!("Expected identifier"),
-                }
-                match &node.node_type {
-                    Some(Expression::Identifier(s)) => assert_eq!(s, "person"),
-                    _ => panic!("Expected node type"),
-                }
-                assert_eq!(node.attributes.len(), 2);
-            }
-            _ => panic!("Expected NodeDecl"),
-        }
-    }
-
-    #[test]
-    fn test_empty_attributes() {
-        let input = r#"
-            graph test {
-                node empty [];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::Identifier(s) => assert_eq!(s, "empty"),
-                    _ => panic!("Expected identifier"),
-                }
-                assert!(node.attributes.is_empty());
-            }
-            _ => panic!("Expected NodeDecl"),
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 }
 
 #[cfg(test)]
-mod edge_declaration_tests {
+mod tagged_object_tests {
     use super::*;
 
     #[test]
-    fn test_directed_edge() {
+    fn test_node_parsing() {
         let input = r#"
-            graph test {
-                edge e1: source -> target;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
-                assert!(edge.directed);
-                assert!(edge.attributes.is_empty());
-            }
-            _ => panic!("Expected EdgeDecl"),
+        {
+            nodes: [
+                Node { id: "alice", meta: { name: "Alice", age: 30 } },
+                Node { id: "bob", meta: { type: "person" } }
+            ],
+            edges: []
         }
-    }
-
-    #[test]
-    fn test_undirected_edge() {
-        let input = r#"
-            graph test {
-                edge e1: source -- target;
-            }
         "#;
 
         let result = parse_ggl(input);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Failed to parse Node objects: {:?}", result.err());
 
         let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
-                assert!(!edge.directed);
-            }
-            _ => panic!("Expected EdgeDecl"),
-        }
-    }
-
-    #[test]
-    fn test_edge_with_attributes() {
-        let input = r#"
-            graph test {
-                edge e1: a -> b [weight=1.5, label="connection"];
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
-                assert_eq!(edge.attributes.len(), 2);
-                let weight_attr = edge.attributes.iter().find(|(key, _)| key == "weight");
-                match weight_attr {
-                    Some((_, AttributeMatch::Exact(Expression::Float(n)))) => {
-                        assert!((n - 1.5).abs() < f64::EPSILON)
-                    }
-                    _ => panic!("Expected weight attribute"),
-                }
-                let label_attr = edge.attributes.iter().find(|(key, _)| key == "label");
-                match label_attr {
-                    Some((_, AttributeMatch::Exact(Expression::StringLiteral(s)))) => {
-                        assert_eq!(s, "connection")
-                    }
-                    _ => panic!("Expected label attribute"),
-                }
-            }
-            _ => panic!("Expected EdgeDecl"),
-        }
-    }
-
-    #[test]
-    fn test_edge_without_explicit_id() {
-        let input = r#"
-            graph test {
-                edge: a -> b;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Edge(edge) => {
-                assert!(edge.id.is_none());
-            }
-            _ => panic!("Expected EdgeDecl"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod generator_statement_tests {
-    use super::*;
-
-    #[test]
-    fn test_simple_generator() {
-        let input = r#"
-            graph test {
-                generate complete {
-                    nodes: 5;
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Generate(gen) => {
-                assert_eq!(gen.name, "complete");
-                assert_eq!(gen.params.len(), 1);
-                let nodes_param = gen.params.iter().find(|(key, _)| key == "nodes");
-                match nodes_param {
-                    Some((_, Expression::Integer(5))) => (),
-                    _ => panic!("Expected nodes parameter"),
-                }
-            }
-            _ => panic!("Expected GenerateStmt"),
-        }
-    }
-
-    #[test]
-    fn test_generator_with_multiple_params() {
-        let input = r#"
-            graph test {
-                generate grid {
-                    rows: 3;
-                    cols: 4;
-                    prefix: "node";
-                    periodic: true;
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Generate(generator) => {
-                assert_eq!(generator.name, "grid");
-                assert_eq!(generator.params.len(), 4);
-
-                let rows_param = generator.params.iter().find(|(key, _)| key == "rows");
-                match rows_param {
-                    Some((_, Expression::Integer(3))) => (),
-                    _ => panic!("Expected rows parameter"),
-                }
-
-                let cols_param = generator.params.iter().find(|(key, _)| key == "cols");
-                match cols_param {
-                    Some((_, Expression::Integer(4))) => (),
-                    _ => panic!("Expected cols parameter"),
-                }
-
-                let prefix_param = generator.params.iter().find(|(key, _)| key == "prefix");
-                match prefix_param {
-                    Some((_, Expression::StringLiteral(s))) => assert_eq!(s, "node"),
-                    _ => panic!("Expected prefix parameter"),
-                }
-
-                let periodic_param = generator.params.iter().find(|(key, _)| key == "periodic");
-                match periodic_param {
-                    Some((_, Expression::Boolean(true))) => (),
-                    _ => panic!("Expected periodic parameter"),
-                }
-            }
-            _ => panic!("Expected GenerateStmt"),
-        }
-    }
-
-    #[test]
-    fn test_generator_with_no_params() {
-        let input = r#"
-            graph test {
-                generate empty {
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::Generate(gen) => {
-                assert_eq!(gen.name, "empty");
-                assert!(gen.params.is_empty());
-            }
-            _ => panic!("Expected GenerateStmt"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod complex_program_tests {
-    use super::*;
-
-    #[test]
-    fn test_mixed_statements() {
-        let input = r#"
-            graph social_network {
-                // Manual nodes
-                node alice :person [name="Alice", age=30];
-                node bob :person [name="Bob", age=25];
-
-                // Manual edge
-                edge friendship: alice -- bob [strength=0.8];
-
-                // Generated structure
-                generate complete {
-                    nodes: 5;
-                    prefix: "user";
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(
-            result.is_ok(),
-            "Failed to parse complex program: {:?}",
-            result.err()
-        );
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 4);
-
-        // Verify statement types in order
-        assert!(matches!(ast.statements[0], Statement::Node(_)));
-        assert!(matches!(ast.statements[1], Statement::Node(_)));
-        assert!(matches!(ast.statements[2], Statement::Edge(_)));
-        assert!(matches!(ast.statements[3], Statement::Generate(_)));
-    }
-
-    #[test]
-    fn test_nested_graph_structure() {
-        let input = r#"
-            graph hierarchical {
-                node root :directory [name="root"];
-
-                generate tree {
-                    depth: 3;
-                    branching: 2;
-                    prefix: "node";
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
-    }
-
-    #[test]
-    fn test_empty_graph() {
-        let input = r#"
-            graph empty {
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 0);
-    }
-
-    #[test]
-    fn test_graph_with_name() {
-        let input = r#"
-            graph my_graph_name {
-                node test;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-    }
-
-    #[test]
-    fn test_graph_without_name() {
-        let input = r#"
-            graph {
-                node test;
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-    }
-}
-
-#[cfg(test)]
-mod conditional_statement_tests {
-    use super::*;
-    use graph_generation_language::parser::{ArithmeticExpression, ComparisonOperator};
-
-    #[test]
-    fn test_basic_if_statement() {
-        let input = r#"
-            graph test {
-                if i < 5 {
-                    node "test_node";
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse basic if statement: {:?}", result.err());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 1);
-
-        match &ast.statements[0] {
-            Statement::If(if_stmt) => {
-                // Check condition
-                match &if_stmt.condition.operator {
-                    ComparisonOperator::LessThan => (),
-                    _ => panic!("Expected less than operator"),
-                }
-                // Check body has one statement
-                assert_eq!(if_stmt.body.len(), 1);
-                assert!(matches!(if_stmt.body[0], Statement::Node(_)));
-            }
-            _ => panic!("Expected If statement"),
-        }
-    }
-
-    #[test]
-    fn test_all_comparison_operators() {
-        let operators = vec![
-            ("<", "LessThan"),
-            (">", "GreaterThan"),
-            ("<=", "LessEqual"),
-            (">=", "GreaterEqual"),
-            ("==", "Equal"),
-            ("!=", "NotEqual"),
-        ];
-
-        for (op, name) in operators {
-            let input = format!(r#"
-                graph test {{
-                    if i {op} 5 {{
-                        node test;
-                    }}
-                }}
-            "#);
-
-            let result = parse_ggl(&input);
-            assert!(result.is_ok(), "Failed to parse {} operator: {:?}", name, result.err());
-
-            let ast = result.unwrap();
-            match &ast.statements[0] {
-                Statement::If(if_stmt) => {
-                    // Just verify the operator was parsed correctly by checking its debug representation
-                    let op_str = format!("{:?}", &if_stmt.condition.operator);
-                    assert!(op_str.contains(name), "Operator mismatch for {name}, got: {op_str}");
-                }
-                _ => panic!("Expected If statement for {name}"),
-            }
-        }
-    }
-
-    #[test]
-    fn test_arithmetic_expressions_in_conditions() {
-        let input = r#"
-            graph test {
-                if i + 1 < j * 2 {
-                    node test;
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse arithmetic in condition: {:?}", result.err());
-
-        let ast = result.unwrap();
-        match &ast.statements[0] {
-            Statement::If(if_stmt) => {
-                // Check that left side is an addition
-                match &if_stmt.condition.left {
-                    ArithmeticExpression::Add(_, _) => (),
-                    _ => panic!("Expected addition on left side"),
-                }
-                // Check that right side is a multiplication
-                match &if_stmt.condition.right {
-                    ArithmeticExpression::Multiply(_, _) => (),
-                    _ => panic!("Expected multiplication on right side"),
-                }
-            }
-            _ => panic!("Expected If statement"),
-        }
-    }
-
-    #[test]
-    fn test_parentheses_in_arithmetic() {
-        let input = r#"
-            graph test {
-                if (i + 1) < (j - 2) {
-                    node test;
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse parentheses in arithmetic: {:?}", result.err());
-    }
-
-    #[test]
-    fn test_multiple_statements_in_if_body() {
-        let input = r#"
-            graph test {
-                if i < 5 {
-                    node "node1";
-                    node "node2";
-                    edge: "node1" -> "node2";
-                }
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse multiple statements in if: {:?}", result.err());
-
-        let ast = result.unwrap();
-        match &ast.statements[0] {
-            Statement::If(if_stmt) => {
-                assert_eq!(if_stmt.body.len(), 3);
-                assert!(matches!(if_stmt.body[0], Statement::Node(_)));
-                assert!(matches!(if_stmt.body[1], Statement::Node(_)));
-                assert!(matches!(if_stmt.body[2], Statement::Edge(_)));
-            }
-            _ => panic!("Expected If statement"),
-        }
-    }
-
-    #[test]
-    fn test_arithmetic_in_string_interpolation() {
-        let input = r#"
-            graph test {
-                node "node_{i+1}";
-                edge: "node_{j}" -> "node_{j*2}";
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse arithmetic in string interpolation: {:?}", result.err());
-
-        let ast = result.unwrap();
-        assert_eq!(ast.statements.len(), 2);
-
-        // Check node with arithmetic in string
-        match &ast.statements[0] {
-            Statement::Node(node) => {
-                match &node.id {
-                    Expression::FormattedString(parts) => {
-                        assert_eq!(parts.len(), 2); // "node_" and "{i+1}"
-                        match &parts[1] {
-                            graph_generation_language::parser::StringPart::Variable(var) => {
-                                // Allow both "i+1" and "i + 1" since parsing may preserve original spacing
-                                assert!(var == "i + 1" || var == "i+1", "Expected 'i + 1' or 'i+1', got: '{var}'");
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("nodes") {
+                    Some(Expression::ArrayExpression(elements)) => {
+                        assert_eq!(elements.len(), 2);
+
+                        // Check first Node
+                        match &elements[0] {
+                            Expression::TaggedObject { tag, fields } => {
+                                assert_eq!(tag, "Node");
+                                assert!(fields.contains_key("id"));
+                                assert!(fields.contains_key("meta"));
                             }
-                            _ => panic!("Expected variable part"),
+                            _ => panic!("Expected TaggedObject for Node"),
                         }
                     }
-                    _ => panic!("Expected formatted string"),
+                    _ => panic!("Expected ArrayExpression for nodes"),
                 }
             }
-            _ => panic!("Expected Node statement"),
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 
     #[test]
-    fn test_nested_if_statements() {
+    fn test_edge_parsing() {
         let input = r#"
-            graph test {
-                if i < 5 {
-                    if j > 3 {
-                        node "nested";
-                    }
-                }
-            }
+        {
+            nodes: [],
+            edges: [
+                Edge { source: "a", target: "b", meta: { weight: 1.0 } },
+                Edge { source: "b", target: "c", meta: { type: "connection" } }
+            ]
+        }
         "#;
 
         let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse nested if statements: {:?}", result.err());
+        assert!(result.is_ok());
 
         let ast = result.unwrap();
-        match &ast.statements[0] {
-            Statement::If(outer_if) => {
-                assert_eq!(outer_if.body.len(), 1);
-                match &outer_if.body[0] {
-                    Statement::If(inner_if) => {
-                        assert_eq!(inner_if.body.len(), 1);
-                        assert!(matches!(inner_if.body[0], Statement::Node(_)));
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("edges") {
+                    Some(Expression::ArrayExpression(elements)) => {
+                        assert_eq!(elements.len(), 2);
+
+                        // Check first Edge
+                        match &elements[0] {
+                            Expression::TaggedObject { tag, fields } => {
+                                assert_eq!(tag, "Edge");
+                                assert!(fields.contains_key("source"));
+                                assert!(fields.contains_key("target"));
+                                assert!(fields.contains_key("meta"));
+                            }
+                            _ => panic!("Expected TaggedObject for Edge"),
+                        }
                     }
-                    _ => panic!("Expected nested If statement"),
+                    _ => panic!("Expected ArrayExpression for edges"),
                 }
             }
-            _ => panic!("Expected If statement"),
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 
     #[test]
-    fn test_if_with_for_loop() {
+    fn test_invalid_node_missing_id() {
         let input = r#"
-            graph test {
-                for i in 0..5 {
-                    if i > 2 {
-                        node "node_{i}";
-                    }
-                }
-            }
+        {
+            nodes: [Node { meta: { name: "Alice" } }],
+            edges: []
+        }
         "#;
 
         let result = parse_ggl(input);
-        assert!(result.is_ok(), "Failed to parse if with for loop: {:?}", result.err());
+        assert!(result.is_err(), "Expected parse error for Node without id");
+    }
+
+    #[test]
+    fn test_invalid_edge_missing_source_target() {
+        let input = r#"
+        {
+            nodes: [],
+            edges: [Edge { meta: { weight: 1.0 } }]
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_err(), "Expected parse error for Edge without source/target");
+    }
+}
+
+#[cfg(test)]
+mod functional_expression_tests {
+    use super::*;
+
+    #[test]
+    fn test_builtin_calls() {
+        let input = r#"
+        {
+            numbers: range("0..5"),
+            pairs: combinations(["a", "b", "c"], 2)
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
 
         let ast = result.unwrap();
-        match &ast.statements[0] {
-            Statement::For(for_stmt) => {
-                assert_eq!(for_stmt.body.len(), 1);
-                assert!(matches!(for_stmt.body[0], Statement::If(_)));
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // Check range call
+                match pairs.get("numbers") {
+                    Some(Expression::BuiltinCall { name, args }) => {
+                        assert_eq!(name, "range");
+                        assert_eq!(args.len(), 1);
+                    }
+                    _ => panic!("Expected BuiltinCall for range"),
+                }
+
+                // Check combinations call
+                match pairs.get("pairs") {
+                    Some(Expression::BuiltinCall { name, args }) => {
+                        assert_eq!(name, "combinations");
+                        assert_eq!(args.len(), 2);
+                    }
+                    _ => panic!("Expected BuiltinCall for combinations"),
+                }
             }
-            _ => panic!("Expected For statement"),
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_method_chaining() {
+        let input = r#"
+        {
+            processed: range("0..5").map(x => x * 2).filter(x => x > 4)
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("processed") {
+                    Some(Expression::ChainExpression { base, chain }) => {
+                        // Base should be range call
+                        assert!(matches!(**base, Expression::BuiltinCall { .. }));
+
+                        // Should have two method calls in chain
+                        assert_eq!(chain.len(), 2);
+                    }
+                    _ => panic!("Expected ChainExpression for method chaining"),
+                }
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_lambda_expressions() {
+        let input = r#"
+        {
+            doubled: range("0..3").map(x => x * 2),
+            filtered: [1, 2, 3, 4, 5].filter(n => n % 2 === 0)
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // Both should be chain expressions with lambda arguments
+                assert!(matches!(pairs.get("doubled"), Some(Expression::ChainExpression { .. })));
+                assert!(matches!(pairs.get("filtered"), Some(Expression::ChainExpression { .. })));
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_template_literals() {
+        let input = r#"
+        {
+            message: `Hello, world!`,
+            dynamic: `Node ${5} has value ${10 * 2}`
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // Check simple template
+                match pairs.get("message") {
+                    Some(Expression::TemplateLiteral { parts }) => {
+                        assert_eq!(parts.len(), 1);
+                    }
+                    _ => panic!("Expected TemplateLiteral"),
+                }
+
+                // Check dynamic template
+                match pairs.get("dynamic") {
+                    Some(Expression::TemplateLiteral { parts }) => {
+                        assert!(parts.len() > 1); // Should have mixed parts
+                    }
+                    _ => panic!("Expected TemplateLiteral"),
+                }
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod arithmetic_tests {
+    use super::*;
+
+    #[test]
+    fn test_arithmetic_operations() {
+        let input = r#"
+        {
+            addition: 5 + 3,
+            subtraction: 10 - 4,
+            multiplication: 6 * 7,
+            division: 15 / 3,
+            modulo: 17 % 5
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // All should be arithmetic expressions
+                assert!(matches!(pairs.get("addition"), Some(Expression::ArithmeticExpression(_))));
+                assert!(matches!(pairs.get("subtraction"), Some(Expression::ArithmeticExpression(_))));
+                assert!(matches!(pairs.get("multiplication"), Some(Expression::ArithmeticExpression(_))));
+                assert!(matches!(pairs.get("division"), Some(Expression::ArithmeticExpression(_))));
+                assert!(matches!(pairs.get("modulo"), Some(Expression::ArithmeticExpression(_))));
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        let input = r#"
+        {
+            complex: 2 + 3 * 4,
+            parentheses: (2 + 3) * 4
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        // Verify that precedence is handled (detailed verification would require deeper AST inspection)
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert!(matches!(pairs.get("complex"), Some(Expression::ArithmeticExpression(_))));
+                assert!(matches!(pairs.get("parentheses"), Some(Expression::ArithmeticExpression(_))));
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod conditional_tests {
+    use super::*;
+
+    #[test]
+    fn test_if_expressions() {
+        let input = r#"
+        {
+            simple_if: if (true) { "yes" } else { "no" },
+            nested_if: if (5 > 3) {
+                if (2 < 4) { "both true" } else { "first true" }
+            } else {
+                "first false"
+            }
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert!(matches!(pairs.get("simple_if"), Some(Expression::IfExpression { .. })));
+                assert!(matches!(pairs.get("nested_if"), Some(Expression::IfExpression { .. })));
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_if_without_else() {
+        let input = r#"
+        {
+            conditional: if (true) { "value" }
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("conditional") {
+                    Some(Expression::IfExpression { condition: _, then_block: _, else_block }) => {
+                        assert!(else_block.is_none());
+                    }
+                    _ => panic!("Expected IfExpression"),
+                }
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod block_expression_tests {
+    use super::*;
+
+    #[test]
+    fn test_block_with_statements() {
+        let input = r#"
+        {
+            result: (() => {
+                let x = 5;
+                let y = 10;
+                return x + y;
+            })
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("result") {
+                    Some(Expression::LambdaExpression { params, body }) => {
+                        // Should be lambda with empty params and block body
+                        assert!(params.is_empty());
+                        match **body {
+                            Expression::BlockExpression { ref statements, .. } => {
+                                assert!(statements.len() >= 2);
+                            }
+                            _ => panic!("Expected BlockExpression as lambda body"),
+                        }
+                    }
+                    _ => panic!("Expected LambdaExpression"),
+                }
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_variable_declarations() {
+        let input = r#"
+        {
+            computed: if (true) {
+                let base = 10;
+                let doubled = base * 2;
+                return doubled + 5;
+            }
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        // Verify variable declarations are parsed
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                match pairs.get("computed") {
+                    Some(Expression::IfExpression { condition: _, then_block, else_block: _ }) => {
+                        // Check the then_block is a BlockExpression with variable declarations
+                        match **then_block {
+                            Expression::BlockExpression { ref statements, .. } => {
+                                let has_var_decl = statements.iter().any(|stmt| {
+                                    matches!(stmt, Expression::VariableDeclaration { .. })
+                                });
+                                assert!(has_var_decl, "Expected variable declarations in block");
+                            }
+                            _ => panic!("Expected BlockExpression in if then_block"),
+                        }
+                    }
+                    _ => panic!("Expected IfExpression"),
+                }
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod spread_expression_tests {
+    use super::*;
+
+    #[test]
+    fn test_object_spread() {
+        let input = r#"
+        {
+            base: { a: 1, b: 2 },
+            extended: { ...base, c: 3 }
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // Verify spread expressions are parsed
+                assert!(pairs.contains_key("base"));
+                assert!(pairs.contains_key("extended"));
+            }
+            _ => panic!("Expected ObjectExpression"),
+        }
+    }
+
+    #[test]
+    fn test_array_spread() {
+        let input = r#"
+        {
+            base: [1, 2, 3],
+            extended: [...base, 4, 5, 6]
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                assert!(pairs.contains_key("base"));
+                assert!(pairs.contains_key("extended"));
+            }
+            _ => panic!("Expected ObjectExpression"),
         }
     }
 }
@@ -968,87 +599,184 @@ mod error_handling_tests {
     use super::*;
 
     #[test]
-    fn test_invalid_syntax() {
+    fn test_syntax_errors() {
         let invalid_inputs = vec![
             "invalid syntax",
-            "graph { node }",              // Missing node ID
-            "graph { edge: -> }",          // Missing source/target
-            "graph { generate }",          // Missing generator name
-            "graph { rule }",              // Missing rule name
-            "graph { apply }",             // Missing rule name
-            "graph { node n [invalid=] }", // Missing attribute value
-            "graph { node n [=value] }",   // Missing attribute key
+            "{ nodes: [Node { }] }", // Missing Node fields
+            "{ invalid: function() }", // Invalid function syntax
+            "{ broken: 1 + }", // Incomplete arithmetic
+            "{ unclosed: [ }", // Unclosed array
+            "{ bad_template: `unclosed template }", // Unclosed template
         ];
 
         for input in invalid_inputs {
             let result = parse_ggl(input);
-            assert!(result.is_err(), "Expected error for input: {input}");
+            assert!(result.is_err(), "Expected parse error for: {input}");
         }
     }
 
     #[test]
-    fn test_invalid_conditional_syntax() {
-        let invalid_inputs = vec![
-            "graph { if { node test; } }",           // Missing condition
-            "graph { if i { node test; } }",         // Missing operator
-            "graph { if i < { node test; } }",       // Missing right operand
-            "graph { if < 5 { node test; } }",       // Missing left operand
-            "graph { if i < 5 node test; }",         // Missing braces
-            "graph { if i < 5 { node test; }",       // Missing closing brace
-        ];
+    fn test_incomplete_expressions() {
+        let input = r#"
+        {
+            incomplete: range("0..5").map(
+        }
+        "#;
 
-        for input in invalid_inputs {
-            let result = parse_ggl(input);
-            assert!(result.is_err(), "Expected error for input: {input}");
+        let result = parse_ggl(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_identifiers() {
+        let input = r#"
+        {
+            "quoted-key": "valid"
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        // Should handle quoted keys correctly
+        if result.is_ok() {
+            let ast = result.unwrap();
+            match ast.root {
+                Expression::ObjectExpression(pairs) => {
+                    // Should have the quoted key
+                    assert!(pairs.contains_key("quoted-key"));
+                }
+                _ => panic!("Expected ObjectExpression"),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod integration_parsing_tests {
+    use super::*;
+
+    #[test]
+    fn test_complete_graph_program() {
+        let input = r#"
+        {
+            // Function definition
+            add_edges: (graph) => ({
+                ...graph,
+                edges: graph.edges.concat([
+                    Edge { source: "new1", target: "new2", meta: { added: true } }
+                ])
+            }),
+
+            // Node generation
+            nodes: range("0..5").map(i => Node {
+                id: `node${i}`,
+                meta: {
+                    index: i,
+                    even: i % 2 === 0,
+                    label: `Node #${i}`
+                }
+            }),
+
+            // Edge generation with transformations
+            edges: combinations(range("0..5"), 2)
+                .slice(0, 6)
+                .map(([a, b]) => Edge {
+                    source: `node${a}`,
+                    target: `node${b}`,
+                    meta: { weight: (a + b) * 0.1 }
+                })
+                .pipe(add_edges, 1)
+        }
+        "#;
+
+        let result = parse_ggl(input);
+        assert!(result.is_ok(), "Failed to parse complete program: {:?}", result.err());
+
+        // Also test that it can execute
+        let mut engine = GGLEngine::new();
+        let execution_result = engine.generate_from_ggl(input);
+        assert!(execution_result.is_ok(), "Failed to execute parsed program: {:?}", execution_result.err());
+
+        if let Ok(json_str) = execution_result {
+            let graph: Value = serde_json::from_str(&json_str).unwrap();
+            assert!(graph["nodes"].is_array());
+            assert!(graph["edges"].is_array());
         }
     }
 
     #[test]
-    fn test_missing_semicolons() {
+    fn test_realistic_social_network() {
         let input = r#"
-            graph test {
-                node a
-                node b
-            }
+        {
+            friend_recommendation: (graph) => ({
+                ...graph,
+                edges: graph.edges.concat(
+                    combinations(graph.nodes, 2)
+                        .filter(([a, b]) => a.id !== b.id)
+                        .slice(0, 3)
+                        .map(([a, b]) => Edge {
+                            source: a.id,
+                            target: b.id,
+                            meta: { type: "suggested", strength: 0.5 }
+                        })
+                )
+            }),
+
+            nodes: range("0..4").map(i => Node {
+                id: `user${i}`,
+                meta: {
+                    age: 20 + i * 5,
+                    active: true,
+                    name: `User ${i}`
+                }
+            }),
+
+            edges: [
+                Edge { source: "user0", target: "user1", meta: { type: "friend" } },
+                Edge { source: "user1", target: "user2", meta: { type: "friend" } }
+            ].pipe(friend_recommendation, 1)
+        }
         "#;
 
         let result = parse_ggl(input);
-        assert!(result.is_err(), "Expected error for missing semicolons");
+        assert!(result.is_ok());
+
+        // Test execution
+        let mut engine = GGLEngine::new();
+        let execution_result = engine.generate_from_ggl(input);
+        assert!(execution_result.is_ok());
     }
 
     #[test]
-    fn test_invalid_numbers() {
+    fn test_mathematical_computations() {
         let input = r#"
-            graph test {
-                node n [value=12.34.56];
-            }
+        {
+            nodes: range("1..6").map(n => Node {
+                id: `calc${n}`,
+                meta: {
+                    input: n,
+                    squared: n * n,
+                    factorial: range("1..10").slice(0, n).reduce((acc, i) => acc * i, 1),
+                    fibonacci: if (n <= 2) { 1 } else {
+                        // Simplified fibonacci for parsing test
+                        n + (n - 1)
+                    }
+                }
+            }),
+            edges: []
+        }
         "#;
 
         let result = parse_ggl(input);
-        assert!(result.is_err(), "Expected error for invalid number");
-    }
+        assert!(result.is_ok());
 
-    #[test]
-    fn test_unclosed_strings() {
-        let input = r#"
-            graph test {
-                node n [label="unclosed string];
+        let ast = result.unwrap();
+        match ast.root {
+            Expression::ObjectExpression(pairs) => {
+                // Verify complex nested structure is parsed
+                assert!(pairs.contains_key("nodes"));
+                assert!(pairs.contains_key("edges"));
             }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_err(), "Expected error for unclosed string");
-    }
-
-    #[test]
-    fn test_unclosed_comments() {
-        let input = r#"
-            graph test {
-                node n; /* unclosed comment
-            }
-        "#;
-
-        let result = parse_ggl(input);
-        assert!(result.is_err(), "Expected error for unclosed comment");
+            _ => panic!("Expected ObjectExpression"),
+        }
     }
 }

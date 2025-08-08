@@ -1,0 +1,155 @@
+{
+  // Mesh topology constants
+  rows: 6,
+  cols: 6,
+  congestion_threshold: 0.7,
+
+  // Traffic balancing transformation
+  balance_traffic: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.high_traffic === 1) {
+        return { ...node, meta: { ...node.meta, traffic: 0.5 } };
+      }
+      if (node.meta.high_traffic === 0 && node.meta.traffic < 0.6) {
+        return { ...node, meta: { ...node.meta, traffic: 0.4 } };
+      }
+      return node;
+    }),
+    edges: graph.edges.concat(
+      graph.nodes
+        .filter(n => n.meta.high_traffic === 1)
+        .map(congested => {
+          // Find neighbors (simplified - in real implementation would check adjacency)
+          let neighbors = graph.nodes.filter(n =>
+            n.meta.high_traffic === 0 &&
+            (n.meta.row - congested.meta.row).abs() <= 1 &&
+            (n.meta.col - congested.meta.col).abs() <= 1
+          );
+          return neighbors.map(neighbor => Edge {
+            source: congested.id,
+            target: neighbor.id,
+            meta: { operation: "offload", amount: 0.2 }
+          });
+        })
+        .flat()
+    )
+  }),
+
+  // Adaptive routing transformation
+  adaptive_routing: (graph) => ({
+    ...graph,
+    edges: graph.edges.map(edge => {
+      if (edge.meta.utilization > 0.6) {
+        return {
+          ...edge,
+          meta: {
+            ...edge.meta,
+            priority: "low",
+            alternate_route: true,
+            weight: 1.2
+          }
+        };
+      }
+      return edge;
+    })
+  }),
+
+  // Route optimization transformation
+  optimize_routes: (graph) => ({
+    ...graph,
+    nodes: graph.nodes.map(node => {
+      if (node.meta.traffic > 0.5) {
+        return {
+          ...node,
+          meta: {
+            ...node.meta,
+            optimized: true,
+            priority: "high"
+          }
+        };
+      }
+      return node;
+    })
+  }),
+
+  // Generate mesh nodes (6x6 grid)
+  nodes: range("0..36").map(idx => {
+    let i = (idx / 6).floor();  // row
+    let j = idx % 6;              // col
+    let traffic = (i + j) * 0.1;
+
+    return Node {
+      id: `n${i}_${j}`,
+      meta: {
+        row: i,
+        col: j,
+        traffic: traffic,
+        congested: 0,
+        high_traffic: if (traffic > 0.7) { 1 } else { 0 },
+        node_type: "router"
+      }
+    };
+  }),
+
+  // Generate mesh connections with wrap-around and apply transformations
+  edges: [
+    // Horizontal connections (with wrap-around)
+    ...range("0..6").map(i =>
+      range("0..6").map(j => {
+        let next_j = (j + 1) % 6;
+        return Edge {
+          source: `n${i}_${j}`,
+          target: `n${i}_${next_j}`,
+          meta: {
+            direction: "horizontal",
+            capacity: 1.0,
+            utilization: j * 0.1
+          }
+        };
+      })
+    ).flat(),
+    // Vertical connections (with wrap-around)
+    ...range("0..6").map(i =>
+      range("0..6").map(j => {
+        let next_i = (i + 1) % 6;
+        return Edge {
+          source: `n${i}_${j}`,
+          target: `n${next_i}_${j}`,
+          meta: {
+            direction: "vertical",
+            capacity: 1.0,
+            utilization: i * 0.1
+          }
+        };
+      })
+    ).flat(),
+    // Express links for high-traffic areas
+    Edge {
+      source: "n0_0",
+      target: "n2_2",
+      meta: { type: "express_link", capacity: 2.0 }
+    },
+    Edge {
+      source: "n1_1",
+      target: "n3_3",
+      meta: { type: "express_link", capacity: 2.0 }
+    }
+  ].concat(
+    // Additional mesh topology connections (simulating generate complete)
+    combinations(range("0..36").map(idx => {
+      let i = (idx / 6).floor();
+      let j = idx % 6;
+      return `n${i}_${j}`;
+    }), 2).slice(0, 20).map(([a, b]) => Edge {
+      source: a,
+      target: b,
+      meta: {
+        dimensions_rows: 6,
+        dimensions_cols: 6,
+        wrap_around: true,
+        link_capacity: 1.0
+      }
+    })
+  ).pipe(balance_traffic, 2).pipe(adaptive_routing, 1).pipe(optimize_routes, 1)
+}

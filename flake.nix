@@ -152,65 +152,11 @@
           ];
         });
 
-        # -----------------------------
-        # build a in-browser client
-        # that uses the ggl library
-        # -----------------------------
-        clientArgs = commonArgs // {
-          pname = "ggl_client";
-          cargoExtraArgs = "--package=ggl_client";
-          CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
-        };
-        clientCargoArtifacts = craneLib.buildDepsOnly (
-          clientArgs
-          // {
-            doCheck = false;
-          }
-        );
-        # Build the frontend of the application.
-        # This derivation is a directory you can put on a webserver.
-        graphGenerationLanguageClient = craneLib.buildTrunkPackage (
-          clientArgs
-          // {
-            cargoArtifacts = clientCargoArtifacts;
-            # Trunk expects the current directory to be the crate to compile
-            preBuild = ''
-              cd ./src/client
-            '';
-            # After building, move the `dist` artifacts and restore the working directory
-            postBuild = ''
-              mv ./dist ../../
-              cd ../../
-            '';
-            # The version of wasm-bindgen-cli here must match the one from Cargo.lock.
-            # When updating to a new version replace the hash values with lib.fakeHash,
-            # then try to do a build, which will fail but will print out the correct value
-            # for `hash`. Replace the value and then repeat the process but this time the
-            # printed value will be for the second `hash` below
-            wasm-bindgen-cli = pkgs.buildWasmBindgenCli rec {
-              src = pkgs.fetchCrate {
-                pname = "wasm-bindgen-cli";
-                version = "0.2.100";
-                hash = "sha256-3RJzK7mkYFrs7C/WkhW9Rr4LdP5ofb2FdYGz1P7Uxog=";
-                # hash = "sha256-3RJzK7mkYFrs7C/WkhW9Rr4LdP5ofb2FdYGz1P7Uxog=";
-              };
-              cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
-                inherit src;
-                inherit (src) pname version;
-                hash = "sha256-qsO12332HSjWCVKtf1cUePWWb9IdYUmT+8OPj/XP2WE=";
-                # hash = "sha256-qsO12332HSjWCVKtf1cUePWWb9IdYUmT+8OPj/XP2WE=";
-              };
-            };
-          }
-        );
-
-
       in
       {
         checks = {
           # Build the crate as part of `nix flake check` for convenience
-          inherit graphGenerationLanguage graphGenerationLanguageWasm graphGenerationLanguageCli graphGenerationLanguageClient;
-
+          inherit graphGenerationLanguage graphGenerationLanguageCli graphGenerationLanguageWasm;
           docs = craneLib.cargoDoc (
             commonArgs
             // {
@@ -228,20 +174,16 @@
             commonArgs
             // {
               inherit cargoArtifacts;
-              # cargoClippyExtraArgs = "--all-targets -- --deny warnings";
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-              # Here we don't care about serving the frontend
-              CLIENT_DIST = "./src/client";
             }
           );
         };
 
         packages.default = graphGenerationLanguage;
         packages.graphGenerationLanguageCli = graphGenerationLanguageCli;
-        packages.graphGenerationLanguageClient = graphGenerationLanguageClient;
         packages.graphGenerationLanguageWasm = graphGenerationLanguageWasm;
 
-        apps.server = flake-utils.lib.mkApp {
+        apps.ggl = flake-utils.lib.mkApp {
           name = "graphGenerationLanguageCli";
           drv = graphGenerationLanguageCli;
         };
@@ -283,9 +225,8 @@
           # Inherit inputs from checks.
           checks = self.checks.${system};
           shellHook = ''
-            export CLIENT_DIST=$PWD/client/dist;
             # Ensure rust-analyzer can find the toolchain
-            # export RUST_SRC_PATH="${rustToolchainFor pkgs}/lib/rustlib/src/rust/library";
+            export RUST_SRC_PATH="${rustToolchainFor pkgs}/lib/rustlib/src/rust/library";
           '';
           # Extra inputs can be added here; cargo and rustc are provided by default.
           packages = [
