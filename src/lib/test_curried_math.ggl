@@ -1,0 +1,1 @@
+f : base -> exp -> math.pow base exp

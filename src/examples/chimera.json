@@ -1,0 +1,429 @@
+{
+  "name": "Comprehensive GGL Feature Showcase Graph",
+  "description": "This GGL file demonstrates every Baba Yaga language feature integrated into a JSON-like declarative structure for dynamic graph generation.",
+  "global_declarations": {
+    "max_nodes_to_generate": 5,
+    "connection_strength": 0.75,
+    "base_name_prefix": "Dynamic-",
+    "is_graph_directed": true,
+    "initial_id_list": [5, 6, 9],
+    "node_templates": {
+      "default_type": "generic",
+      "priority": 1
+    },
+    "math_constants": {
+      "pi_val": 3.141592653589793,
+      "infinity_val": "Infinity"
+    }
+  },
+  "variables": {
+    "current_id_counter": 0,
+    "greeting_message": "Hello GGL!",
+    "processed_data_list": [10, 20, 30]
+  },
+  "functions": {},
+  "combinators_demo": {
+    "flipped_sum": 15,
+    "applied_increment": 11,
+    "piped_value": 9,
+    "composed_function_result": 9
+  },
+  "operators_in_action": {
+    "access_example": 5,
+    "call_example": 6,
+    "unary_minus": -10,
+    "unary_not": true,
+    "multiply": 10,
+    "divide": 5.0,
+    "modulo": 1,
+    "add": 2,
+    "subtract": 3,
+    "equals": true,
+    "not_equals": true,
+    "less_than": true,
+    "less_equal": true,
+    "greater_than": true,
+    "greater_equal": true,
+    "logical_and": false,
+    "logical_or": true,
+    "string_concat": "Hello World"
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "label": "Graph Start",
+      "metadata": {
+        "default_type": "generic",
+        "priority": 1
+      }
+    },
+    {
+      "id": "exit",
+      "label": "Graph End",
+      "final_status": "complete"
+    },
+    {
+      "id": "Dynamic-node-1",
+      "value": -5,
+      "fib_sequence_val": 0,
+      "formatted_status": "Status: 0",
+      "power_of_2": 1,
+      "category": "root",
+      "parity": "odd/zero",
+      "math_props": {
+        "abs": 3,
+        "sign": -1,
+        "min": 0,
+        "max": 3,
+        "clamp": 20,
+        "floor": 0.0,
+        "ceil": 0.0,
+        "round": 0.0,
+        "trunc": 0.0,
+        "pow": 0,
+        "sqrt": 1.0,
+        "exp": 1.0,
+        "log": 0.0,
+        "sin": 0.0,
+        "cos": 1.0,
+        "tan": 0.0,
+        "asin": 0.0,
+        "acos": 1.5707963267948966,
+        "atan": 0.0,
+        "atan2": 0.0,
+        "deg_from_rad": 0.0,
+        "random_value": 0.123,
+        "random_int_range": 15
+      },
+      "string_ops_results": {
+        "concat_val": "prefix-mid-0-suffix",
+        "split_val": ["", "hello", "world", "GGL!", ""],
+        "join_val": "_hello_world_GGL!_",
+        "length_val": 18,
+        "substring_val": "ello ",
+        "replace_val": " hello universe GGL! ",
+        "trim_val": "hello world GGL!",
+        "upper_val": "LOWERCASE",
+        "lower_val": "uppercase",
+        "text_lines_val": ["line1", "line2", "line3"],
+        "text_words_val": ["word1", "word2", "word3"]
+      }
+    },
+    {
+      "id": "Dynamic-node-2",
+      "value": -2,
+      "fib_sequence_val": 1,
+      "formatted_status": "Status: 10",
+      "power_of_2": 2,
+      "category": "first",
+      "parity": "odd/zero",
+      "math_props": {
+        "abs": 2,
+        "sign": -1,
+        "min": 1,
+        "max": 3,
+        "clamp": 20,
+        "floor": 0.0,
+        "ceil": 1.0,
+        "round": 1.0,
+        "trunc": 0.0,
+        "pow": 1,
+        "sqrt": 1.4142135623730951,
+        "exp": 2.718281828459045,
+        "log": 0.6931471805599453,
+        "sin": 0.01745240643728351,
+        "cos": 0.9998476951563913,
+        "tan": 0.017455064928217585,
+        "asin": 0.1001674211615598,
+        "acos": 1.4706289056333368,
+        "atan": 0.7853981633974483,
+        "atan2": 1.1071487177940904,
+        "deg_from_rad": 1.0,
+        "random_value": 0.123,
+        "random_int_range": 15
+      },
+      "string_ops_results": {
+        "concat_val": "prefix-mid-1-suffix",
+        "split_val": ["", "hello", "world", "GGL!", ""],
+        "join_val": "_hello_world_GGL!_",
+        "length_val": 18,
+        "substring_val": "ello ",
+        "replace_val": " hello universe GGL! ",
+        "trim_val": "hello world GGL!",
+        "upper_val": "LOWERCASE",
+        "lower_val": "uppercase",
+        "text_lines_val": ["line1", "line2", "line3"],
+        "text_words_val": ["word1", "word2", "word3"]
+      }
+    },
+    {
+      "id": "Dynamic-node-3",
+      "value": 1,
+      "fib_sequence_val": 1,
+      "formatted_status": "Status: 20",
+      "power_of_2": 4,
+      "category": "sequential",
+      "parity": "even",
+      "math_props": {
+        "abs": 1,
+        "sign": 0,
+        "min": 2,
+        "max": 3,
+        "clamp": 20,
+        "floor": 1.0,
+        "ceil": 1.0,
+        "round": 1.0,
+        "trunc": 1.0,
+        "pow": 4,
+        "sqrt": 1.7320508105756802,
+        "exp": 7.38905609893065,
+        "log": 1.0986122886681098,
+        "sin": 0.03489949670250097,
+        "cos": 0.9993908270190958,
+        "tan": 0.03492076949174773,
+        "asin": 0.20135792079033003,
+        "acos": 1.369438406859567,
+        "atan": 1.1071487177940904,
+        "atan2": 1.1071487177940904,
+        "deg_from_rad": 2.0,
+        "random_value": 0.123,
+        "random_int_range": 15
+      },
+      "string_ops_results": {
+        "concat_val": "prefix-mid-2-suffix",
+        "split_val": ["", "hello", "world", "GGL!", ""],
+        "join_val": "_hello_world_GGL!_",
+        "length_val": 18,
+        "substring_val": "ello ",
+        "replace_val": " hello universe GGL! ",
+        "trim_val": "hello world GGL!",
+        "upper_val": "LOWERCASE",
+        "lower_val": "uppercase",
+        "text_lines_val": ["line1", "line2", "line3"],
+        "text_words_val": ["word1", "word2", "word3"]
+      }
+    },
+    {
+      "id": "Dynamic-node-4",
+      "value": 4,
+      "fib_sequence_val": 2,
+      "formatted_status": "Status: 30",
+      "power_of_2": 8,
+      "category": "sequential",
+      "parity": "odd/zero",
+      "math_props": {
+        "abs": 0,
+        "sign": 1,
+        "min": 3,
+        "max": 3,
+        "clamp": 30,
+        "floor": 1.0,
+        "ceil": 2.0,
+        "round": 2.0,
+        "trunc": 1.0,
+        "pow": 9,
+        "sqrt": 2.0,
+        "exp": 20.085536923187668,
+        "log": 1.3862943611198906,
+        "sin": 0.05233595624294383,
+        "cos": 0.9986295347545738,
+        "tan": 0.05240777928304958,
+        "asin": 0.3046926540153975,
+        "acos": 1.266103602780495,
+        "atan": 1.2490457723982544,
+        "atan2": 1.1071487177940904,
+        "deg_from_rad": 3.0,
+        "random_value": 0.123,
+        "random_int_range": 15
+      },
+      "string_ops_results": {
+        "concat_val": "prefix-mid-3-suffix",
+        "split_val": ["", "hello", "world", "GGL!", ""],
+        "join_val": "_hello_world_GGL!_",
+        "length_val": 18,
+        "substring_val": "ello ",
+        "replace_val": " hello universe GGL! ",
+        "trim_val": "hello world GGL!",
+        "upper_val": "LOWERCASE",
+        "lower_val": "uppercase",
+        "text_lines_val": ["line1", "line2", "line3"],
+        "text_words_val": ["word1", "word2", "word3"]
+      }
+    },
+    {
+      "id": "Dynamic-node-5",
+      "value": 7,
+      "fib_sequence_val": 3,
+      "formatted_status": "Status: 40",
+      "power_of_2": 16,
+      "category": "sequential",
+      "parity": "even",
+      "math_props": {
+        "abs": 1,
+        "sign": 1,
+        "min": 3,
+        "max": 4,
+        "clamp": 40,
+        "floor": 2.0,
+        "ceil": 2.0,
+        "round": 2.0,
+        "trunc": 2.0,
+        "pow": 16,
+        "sqrt": 2.23606797749979,
+        "exp": 54.598150033144236,
+        "log": 1.6094379124341003,
+        "sin": 0.0697564737441253,
+        "cos": 0.9975640505878893,
+        "tan": 0.06998822915809797,
+        "asin": 0.4115168460674063,
+        "acos": 1.159279480722384,
+        "atan": 1.3258176636680326,
+        "atan2": 1.1071487177940904,
+        "deg_from_rad": 4.0,
+        "random_value": 0.123,
+        "random_int_range": 15
+      },
+      "string_ops_results": {
+        "concat_val": "prefix-mid-4-suffix",
+        "split_val": ["", "hello", "world", "GGL!", ""],
+        "join_val": "_hello_world_GGL!_",
+        "length_val": 18,
+        "substring_val": "ello ",
+        "replace_val": " hello universe GGL! ",
+        "trim_val": "hello world GGL!",
+        "upper_val": "LOWERCASE",
+        "lower_val": "uppercase",
+        "text_lines_val": ["line1", "line2", "line3"],
+        "text_words_val": ["word1", "word2", "word3"]
+      }
+    },
+    {
+      "id": "high_val_node_1",
+      "value": 15
+    },
+    {
+      "id": "advanced_array_ops_node",
+      "cumulative_sums": [6, 8, 11, 12, 13],
+      "cumulative_products": [6, 11, 14, 15, 16],
+      "scanned_results": [6, 8, 11, 12, 13],
+      "selected_by_where": [5, 17],
+      "taken_elements": [11, 14],
+      "dropped_elements": [5, 12, 17],
+      "broadcasted_values": [8, 9, 10, 18, 19],
+      "matrix_view": null,
+      "chunked_parts": [
+        [-2, 9, 10],
+        [20, 21, 22]
+      ],
+      "repeated_items": ["X", "X", "X", "X"]
+    },
+    {
+      "id": "list_manipulation_node",
+      "final_list_state": ["new_c", "c"],
+      "list_final_length": 2
+    },
+    {
+      "id": "sort_group_node",
+      "sorted_people": [
+        {
+          "name": "Bob",
+          "age": 25
+        },
+        {
+          "name": "Alice",
+          "age": 30
+        },
+        {
+          "name": "Charlie",
+          "age": 30
+        }
+      ],
+      "grouped_people": {
+        "25": [
+          {
+            "name": "Bob",
+            "age": 25
+          }
+        ],
+        "30": [
+          {
+            "name": "Alice",
+            "age": 30
+          },
+          {
+            "name": "Charlie",
+            "age": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": "table_ops_node",
+      "final_settings": {
+        "color": "red",
+        "shape": "circle",
+        "opacity": 0.5,
+        "material": "plastic"
+      },
+      "all_keys_list": ["color", "shape", "opacity", "material"],
+      "all_values_list": ["red", "circle", 0.5, "plastic"],
+      "metadata_info": "shape result: Table, 0"
+    },
+    {
+      "id": "validation_debug_node",
+      "validation_status": "checks_demonstrated"
+    },
+    {
+      "id": "io_js_interop_node",
+      "io_js_status": "io_and_js_interop_demonstrated"
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "Dynamic-node-1",
+      "weight": 1.0,
+      "type": "initial_connection"
+    },
+    {
+      "from": "Dynamic-node-1",
+      "to": "Dynamic-node-2",
+      "label": "Dynamic-edge-1-2",
+      "direction_property": "forward",
+      "calculated_weight": 2.25,
+      "result_check": "Error: Division by zero",
+      "composed_operation": 90,
+      "piped_operation": 4
+    },
+    {
+      "from": "Dynamic-node-2",
+      "to": "Dynamic-node-3",
+      "label": "Dynamic-edge-2-3",
+      "direction_property": "forward",
+      "calculated_weight": 3.75,
+      "result_check": 30,
+      "composed_operation": 90,
+      "piped_operation": 6
+    },
+    {
+      "from": "Dynamic-node-3",
+      "to": "Dynamic-node-4",
+      "label": "Dynamic-edge-3-4",
+      "direction_property": "forward",
+      "calculated_weight": 5.25,
+      "result_check": 20,
+      "composed_operation": 90,
+      "piped_operation": 8
+    },
+    {
+      "from": "Dynamic-node-4",
+      "to": "Dynamic-node-5",
+      "label": "Dynamic-edge-4-5",
+      "direction_property": "forward",
+      "calculated_weight": 6.75,
+      "result_check": 16.666666666666668,
+      "composed_operation": 90,
+      "piped_operation": 10
+    }
+  ]
+}

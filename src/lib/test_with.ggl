@@ -1,0 +1,4 @@
+f : input_val -> with (
+    intermediate_res : input_val * 3;
+    final_res : intermediate_res - 5;
+) -> final_res

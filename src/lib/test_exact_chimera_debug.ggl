@@ -1,0 +1,29 @@
+// filename: comprehensive_example.ggl
+
+{
+    "name": "Comprehensive GGL Feature Showcase Graph",
+    "description": "This GGL file demonstrates every Baba Yaga language feature integrated into a JSON-like declarative structure for dynamic graph generation.",
+
+    // ----------------------------------------------------------------------------------------------------
+    // 1. Baba Yaga Language Constructs & Core Features
+    //    (Variables, Functions, Literals, Operators, Control Flow, Types, Result Handling)
+    // ----------------------------------------------------------------------------------------------------
+
+    // Literals: Int, Float, String, Bool, List, Table, Constants PI, INFINITY [5-8]
+    "global_declarations": {
+        "max_nodes_to_generate": 5, // Int
+        "connection_strength": 0.75, // Float
+        "base_name_prefix": "Dynamic-", // String
+        "is_graph_directed": true, // Bool
+        "initial_id_list": [5, 6, 9], // List
+        "node_templates": { "default_type": "generic", "priority": 1 }, // Table
+        "math_constants": { "pi_val": PI, "infinity_val": INFINITY } // Constants
+    },
+
+    // Variable Assignment: var : value; and var Type; var : value; [5, 10, 11]
+    "variables": {
+        "current_id_counter": var Int; var : 0,
+        "greeting_message": "Hello GGL!",
+        "processed_data_list": [var Int; var : 10, 20, 30] // Example of typed assignment in a list context
+    }
+}

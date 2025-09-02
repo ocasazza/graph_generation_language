@@ -1,0 +1,6 @@
+// Test to find the exact issue at line 177:49
+// Let me extract just that section to debug
+
+{
+    "test": "debugging line 177"
+}

@@ -44,7 +44,7 @@ import * as monaco from 'monaco-editor';
 import { examples } from './examples.js';
 
 // Reactive data
-const selectedExample = ref('neuralNetwork');
+const selectedExample = ref('chimera');
 const output = ref('Ready to generate graph...');
 const generationTime = ref(null);
 const editorContainer = ref(null);

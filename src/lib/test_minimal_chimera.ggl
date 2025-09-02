@@ -1,0 +1,8 @@
+// filename: comprehensive_example.ggl
+
+{
+    "name": "Test",
+    "variables": {
+        "current_id_counter": "test"
+    }
+}

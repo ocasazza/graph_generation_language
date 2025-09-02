@@ -1,0 +1,1 @@
+use graph_generation_language::*; fn main() { let content = std::fs::read_to_string("test_simple.ggl").unwrap(); match parse_program(&content) { Ok(program) => println!("Parsed successfully: {:?}", program), Err(e) => println!("Parse error: {}", e) } }

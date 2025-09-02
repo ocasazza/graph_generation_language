@@ -1,0 +1,1 @@
+when x is 0 then 0 _ then fib_1 (x - 1)

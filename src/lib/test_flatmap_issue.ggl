@@ -1,0 +1,6 @@
+flatMap (node_idx -> [
+    {
+        "id": "test",
+        "value": node_idx
+    }
+]) (range 0 5),

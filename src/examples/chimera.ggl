@@ -1,0 +1,286 @@
+// filename: comprehensive_example.ggl
+
+{
+    "name": "Comprehensive GGL Feature Showcase Graph",
+    "description": "This GGL file demonstrates every Baba Yaga language feature integrated into a JSON-like declarative structure for dynamic graph generation.",
+
+    // ----------------------------------------------------------------------------------------------------
+    // 1. Baba Yaga Language Constructs & Core Features
+    //    (Variables, Functions, Literals, Operators, Control Flow, Types, Result Handling)
+    // ----------------------------------------------------------------------------------------------------
+
+    // Literals: Int, Float, String, Bool, List, Table, Constants PI, INFINITY [5-8]
+    "global_declarations": {
+        "max_nodes_to_generate": 5, // Int
+        "connection_strength": 0.75, // Float
+        "base_name_prefix": "Dynamic-", // String
+        "is_graph_directed": true, // Bool
+        "initial_id_list": [5, 6, 9], // List
+        "node_templates": { "default_type": "generic", "priority": 1 }, // Table
+        "math_constants": { "pi_val": PI, "infinity_val": INFINITY } // Constants
+    },
+
+    // Variable Assignment: var : value; and var Type; var : value; [5, 10, 11]
+    "variables": {
+        "current_id_counter": var Int; var : 0;
+        "greeting_message": "Hello GGL!",
+        "processed_data_list": [var Int; var : 10, 20, 30] // Example of typed assignment in a list context
+    },
+
+    // Function Definitions: Single, Multi-param, Typed, Curried, With Locals, With Mutual Recursion [5, 7, 10-13]
+    "functions": {
+        // Single parameter function: f : x -> body;
+        "increment": f : x -> x + 1,
+        // Multi-parameter function: f : x y -> body;
+        "sum_two": f : x y -> x + y,
+        // Typed function: f : (x: Type) -> Type -> body;
+        "format_status": f : (status_code: Int) -> String -> "Status: " .. status_code,
+        // Curried function: f : x -> y -> body;
+        "curry_power": f : base -> exp -> math.pow base exp,
+        // Function with local variables: f : x -> with (locals) -> body;
+        "calculate_complex": f : input_val -> with (
+            intermediate_res : input_val * 3;
+            final_res : intermediate_res - 5;
+        ) -> final_res,
+        // Function with mutual recursion (Fibonacci example from Baba Yaga manual adapted) [5, 11-13]
+        "fibonacci": f : n -> with rec (
+            fib_0 : x -> when x is 0 then 0 _ then fib_1 (x - 1);
+            fib_1 : x -> when x is 1 then 1 _ then (fib_0 (x - 1)) + (fib_0 (x - 2));
+        ) -> fib_0 n,
+
+        // Result Handling: Ok value | Err message [9, 11, 14, 15]
+        "safe_divide": f : numerator denominator -> when denominator is 0 then Err "Division by zero" _ then Ok (numerator / denominator),
+        "handle_safe_divide_result": f : result_val -> when result_val is Ok v then v Err msg then "Error: " .. msg
+    },
+
+    // Functional Combinators: flip, apply, pipe, compose [10, 11, 16]
+    "combinators_demo": {
+        "flipped_sum": flip sum_two 5 10, // Example: sum_two 5 10 becomes sum_two 10 5
+        "applied_increment": apply increment 10, // Explicitly applies 'increment' to 10
+        "piped_value": 7 |> increment |> increment, // Pipelines 7 through 'increment' twice
+        "composed_function_result": (compose increment (curry_power 2)) 3 // (curry_power 2 3) then increment
+    },
+
+    // Operators: Call, Access, Unary, Arithmetic, Comparison, Logical, String Concatenation [6, 11, 17, 18]
+    "operators_in_action": {
+        "access_example": global_declarations.max_nodes_to_generate, // Table access
+        "call_example": increment 5, // Function call
+        "unary_minus": -10, // Unary minus
+        "unary_not": !false, // Unary not
+        "multiply": 5 * 2, // Arithmetic multiply
+        "divide": 10 / 2, // Arithmetic divide
+        "modulo": 10 % 3, // Arithmetic modulo
+        "add": 1 + 1, // Arithmetic add
+        "subtract": 5 - 2, // Arithmetic subtract
+        "equals": (1 = 1), // Comparison equals
+        "not_equals": (1 != 2), // Comparison not equals
+        "less_than": (3 < 5), // Comparison less than
+        "less_equal": (3 <= 3), // Comparison less equal
+        "greater_than": (5 > 3), // Comparison greater than
+        "greater_equal": (5 >= 5), // Comparison greater equal
+        "logical_and": true and false, // Logical AND
+        "logical_or": true or false, // Logical OR
+        "string_concat": "Hello " .. "World" // String concatenation
+    },
+
+    // ----------------------------------------------------------------------------------------------------
+    // 2. Node Generation Logic
+    // ----------------------------------------------------------------------------------------------------
+    "nodes": [
+        // Static Node Declarations
+        { "id": "entry", "label": "Graph Start", "metadata": global_declarations.node_templates },
+        { "id": "exit", "label": "Graph End", "final_status": "complete" },
+
+        // Dynamic Node Generation using Array & List Operations, Math, String, and Control Flow [2, 8, 9, 11, 13-15, 18-24]
+        flatMap (node_idx -> [ // flatMap: transforms each item in a list into a list of items, then concatenates the results
+            {
+                "id": base_name_prefix .. "node-" .. (increment node_idx), // String concat, function call
+                "value": calculate_complex node_idx, // Function with locals usage
+                "fib_sequence_val": fibonacci node_idx, // Mutual recursion usage
+                "formatted_status": format_status (node_idx * 10), // Typed function usage
+                "power_of_2": (curry_power 2) node_idx, // Curried function usage
+                "category": when node_idx is // Pattern matching
+                    0 then "root"
+                    1 then "first"
+                    Int then "sequential"
+                    _ then "other",
+                "parity": (functions.even_odd_check node_idx).is_even if node_idx > 0 then "even" else "odd/zero", // Pattern guard and mutual recursion access
+                "math_props": { // Comprehensive Math Operations [2, 11, 14, 17, 20, 24]
+                    "abs": math.abs (node_idx - 3),
+                    "sign": math.sign (node_idx - 2),
+                    "min": math.min node_idx 3,
+                    "max": math.max node_idx 3,
+                    "clamp": math.clamp (node_idx * 10) 20 80,
+                    "floor": math.floor (node_idx / 2.0),
+                    "ceil": math.ceil (node_idx / 2.0),
+                    "round": math.round (node_idx / 2.0),
+                    "trunc": math.trunc (node_idx / 2.0),
+                    "pow": math.pow node_idx 2,
+                    "sqrt": math.sqrt (node_idx + 1),
+                    "exp": math.exp node_idx,
+                    "log": math.log (node_idx + 1),
+                    "sin": math.sin (math.rad node_idx),
+                    "cos": math.cos (math.rad node_idx),
+                    "tan": math.tan (math.rad node_idx),
+                    "asin": math.asin (math.min 1.0 (node_idx * 0.1)),
+                    "acos": math.acos (math.min 1.0 (node_idx * 0.1)),
+                    "atan": math.atan node_idx,
+                    "atan2": math.atan2 (node_idx * 2) node_idx,
+                    "deg_from_rad": math.deg (math.rad node_idx),
+                    "random_value": math.random, // [0,1)
+                    "random_int_range": math.randomInt 10 20 // [lo,hi]
+                },
+                "string_ops_results": with ( // String Operations [7, 18, 20, 23]
+                    test_str : "   hello world GGL!   ";
+                    split_words : str.split test_str " ";
+                ) -> {
+                    "concat_val": str.concat "prefix-" "mid-" (node_idx .. "-suffix"),
+                    "split_val": split_words,
+                    "join_val": str.join split_words "_",
+                    "length_val": str.length test_str,
+                    "substring_val": str.substring test_str 3 8,
+                    "replace_val": str.replace test_str "world" "universe",
+                    "trim_val": str.trim test_str,
+                    "upper_val": str.upper "lowercase",
+                    "lower_val": str.lower "UPPERCASE",
+                    "text_lines_val": text.lines "line1\nline2\nline3",
+                    "text_words_val": text.words "word1 word2 word3"
+                }
+            }
+        ]) (range 0 max_nodes_to_generate), // range: generates sequence of numbers, uses variable
+
+        // Filter: selects elements based on a predicate [9, 15, 18]
+        filter (n -> n.value > 10) [
+            { "id": "high_val_node_1", "value": 15 },
+            { "id": "low_val_node_1", "value": 5 }
+        ],
+
+        // Other Array Programming functions [2, 9, 13-15, 21]
+        with (
+            raw_data : range 1 6; // [5-7, 9, 19]
+            cum_sum_data : cumsum raw_data; // Cumulative sum
+            cum_prod_data : cumprod raw_data; // Cumulative product
+            scanned_data : scan (acc x -> acc + x) 0 raw_data; // Cumulative reduce
+            indices_gt_3 : where (x -> x > 3) raw_data; // Get indices where predicate is true
+            at_indices_data : at indices_gt_3 raw_data; // Select elements at specific indices
+            take_first_2 : take 2 raw_data; // First n elements
+            drop_last_2 : drop 2 raw_data; // Drop first n elements
+            broadcast_op : broadcast (x y -> x * y) 10 raw_data; // Apply scalar operation to each element
+            reshaped_matrix : reshape [6, 9] [5-7, 9, 17, 19]; // Reshape flat array to matrix
+            chunked_list : chunk [5-7, 9, 10, 14, 17, 19] 3; // Split list into chunks
+            repeated_element_list : repeat 4 "X"; // Create list with repeated element
+        ) -> {
+            "id": "advanced_array_ops_node",
+            "cumulative_sums": cum_sum_data,
+            "cumulative_products": cum_prod_data,
+            "scanned_results": scanned_data,
+            "selected_by_where": at_indices_data,
+            "taken_elements": take_first_2,
+            "dropped_elements": drop_last_2,
+            "broadcasted_values": broadcast_op,
+            "matrix_view": reshaped_matrix,
+            "chunked_parts": chunked_list,
+            "repeated_items": repeated_element_list
+        },
+
+        // List Manipulation [15, 19, 21]
+        with (
+            original_list : ["a", "b", "c"];
+            appended_item : append original_list "d"; // append
+            prepended_item : prepend "z" appended_item; // prepend
+            concatenated_list : concat prepended_item ["e", "f"]; // concat
+            updated_item : update concatenated_list 2 "new_c"; // update
+            removed_item : removeAt updated_list 0; // removeAt
+            sliced_part : slice removed_item 1 3; // slice
+            current_length : length sliced_part; // length
+        ) -> {
+            "id": "list_manipulation_node",
+            "final_list_state": sliced_part,
+            "list_final_length": current_length
+        },
+
+        // Sorting and Grouping [7, 8, 15]
+        with (
+            people_data : [{name: "Alice", age: 30}, {name: "Bob", age: 25}, {name: "Charlie", age: 30}];
+            sorted_by_age : sort.by people_data (person -> person.age); // sort.by
+            grouped_by_age : group.by people_data (person -> person.age); // group.by
+        ) -> {
+            "id": "sort_group_node",
+            "sorted_people": sorted_by_age,
+            "grouped_people": grouped_by_age
+        },
+
+        // Table Operations [2, 7, 8, 25]
+        with (
+            initial_settings : { "color": "red", "size": 10 };
+            settings_with_new_key : set initial_settings "shape" "circle"; // set
+            settings_with_removed_key : remove settings_with_new_key "size"; // remove
+            merged_settings : merge settings_with_removed_key { "opacity": 0.5, "material": "plastic" }; // merge
+            all_keys : keys merged_settings; // keys
+            all_values : values merged_settings; // values
+            metadata_shape : shape merged_settings; // shape (returns metadata, represented here as a placeholder)
+        ) -> {
+            "id": "table_ops_node",
+            "final_settings": merged_settings,
+            "all_keys_list": all_keys,
+            "all_values_list": all_values,
+            "metadata_info": "shape result: " .. (metadata_shape.kind .. ", " .. metadata_shape.rank) // Assuming string conversion of metadata for JSON
+        },
+
+        // Validation & Debugging (Demonstrates syntax; actual effects are runtime-dependent) [1, 10, 16]
+        with (
+            _ : validate.notEmpty [5, 6, 9]; // Checks if not empty
+            _ : validate.range 0 10 5; // Checks if value is within range
+            _ : validate.type "String" "valid type"; // Checks if value has specific type
+            _ : validate.email "user@domain.com"; // Example of specific validation
+            _ : debug.print "Node Creation" ("Created node " .. current_id_counter); // Prints value to stdout with optional name
+            _ : debug.inspect { complex_obj: { nested: [5, 6], status: true } }; // Detailed inspection of value
+            _ : assert (global_declarations.max_nodes_to_generate > 0) "Max nodes must be positive!"; // Throws an error if condition is false
+        ) -> {
+            "id": "validation_debug_node",
+            "validation_status": "checks_demonstrated"
+        },
+
+        // I/O and JavaScript Interoperability (Demonstrates syntax; actual effects are runtime-dependent) [1, 10, 12, 22, 26, 27]
+        with (
+            // _ : io.out "Generating graph..."; // Prints value to console
+            // user_input : io.in; // Reads input from stdin
+            // js_sync_result : io.callJS "myJsFunction" ["arg1", 123]; // Calls a JS function synchronously
+            // js_async_result : io.callJSAsync "myAsyncJsFunction" [{ key: "value" }]; // Calls a JS function asynchronously
+            // js_property_value : io.getProperty js_window_object_ref "location.href"; // Gets a property from a JS object
+            // _ : io.setProperty js_node_ref "data-status" "active"; // Sets a property on a JS object
+            // has_js_property : io.hasProperty js_array_ref "length"; // Checks if a JS property exists
+            // converted_js_array : io.jsArrayToList js_array_ref_for_conversion; // Converts JS array to Baba Yaga List
+            // converted_list_to_js_array : io.listToJSArray ["a", "b", "c"]; // Converts Baba Yaga List to JS array
+            // converted_js_obj_to_table : io.objectToTable js_object_ref_for_conversion; // Converts JS object to Baba Yaga Table
+            // converted_table_to_js_obj : io.tableToObject { key: "table_value" }; // Converts Baba Yaga Table to JS object
+            // last_error : io.getLastJSError; // Gets the last JS error
+            // _ : io.clearJSError; // Clears the last JS error
+        ) -> {
+            "id": "io_js_interop_node",
+            "io_js_status": "io_and_js_interop_demonstrated"
+        }
+    ],
+
+    // ----------------------------------------------------------------------------------------------------
+    // 3. Edge Generation Logic
+    // ----------------------------------------------------------------------------------------------------
+    "edges": [
+        // Static Edge Declaration
+        { "from": "entry", "to": "Dynamic-node-1", "weight": 1.0, "type": "initial_connection" },
+
+        // Dynamic Edge Generation using Array Operations and Function Combinators [2, 9-11, 15, 16, 19, 21]
+        zipWith (source_id target_id -> { // zipWith: combines two lists element-wise with a function
+            "from": base_name_prefix .. "node-" .. source_id, // Variable usage, string concat
+            "to": base_name_prefix .. "node-" .. target_id,
+            "label": base_name_prefix .. "edge-" .. source_id .. "-" .. target_id, // String concat
+            "direction_property": is_graph_directed if (source_id < target_id) then "forward" else "backward", // Control flow with pattern guard, bool variable
+            "calculated_weight": (sum_two source_id target_id) * connection_strength, // Multi-param function, arithmetic operator, float variable
+            "result_check": handle_safe_divide_result (safe_divide (target_id * 10) (source_id - 1)), // Nested function calls, result handling
+            "composed_operation": (combinators_demo.composed_function_result) * 10, // Accessing combinator result
+            "piped_operation": (source_id + target_id) |> increment // Pipe operator
+        })
+        (map (i -> increment i) (range 0 (global_declarations.max_nodes_to_generate - 1))) // Map and range for source nodes
+        (map (i -> increment i) (range 1 global_declarations.max_nodes_to_generate)) // Map and range for target nodes
+    ]
+}
